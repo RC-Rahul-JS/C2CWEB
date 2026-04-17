@@ -1,0 +1,35 @@
+[
+  {
+    "id":1,
+    "address": "SCO B/8, Main Multania Rd, Parasram Nagar, Bathinda, Punjab 151001",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQCWxPba5KBKblkuh7A9zM1MWU4ECje__krVg&s",
+    "name": "Lal Path Lab",
+    "phone": " 08071 371 558",
+    "rating": "4.5"
+  },
+  {
+    "id":2,
+    "address": " Booth No 2, Amrik Singh Rd, near Umang Cinema, Shakti Nagar, Bathinda, Punjab 151001",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQHeLOMEqKz4xVcqoiS-o9SEtjSpAdns8I54Q&s",
+    "name": "Max Lab",
+    "phone": " 076960 81496",
+    "rating": "3.8"
+  },
+  {
+    "id":3,
+    "address": "near Max hospital, Guru Ki Nagri, Bathinda, Punjab 151001",
+    "image_url": "https://content.jdmagicbox.com/v2/comp/mehsana/v2/9999p2762.2762.180228212739.i2v2/catalogue/krsnaa-diagnostics-kadi-kadi-diagnostic-imaging-services-7iu05yyk2f.jpg",
+    "name": "Krsnaa Diagnostics",
+    "phone": "+91 96233 96233",
+    "rating": "4.8"
+  },
+  {
+    "id":4,
+    "address": "SCO number 54, PUDA market, Power House Rd, near Canara Bank, Civil Lines, Bathinda",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQz0xnb-eCPSJixCbAhm_qtCW3dZtBV530Lqw&s",
+    "name": "Aadhaar Diagnostics",
+    "phone": "08197700245",
+    "rating": "4.8"
+    
+  }
+]
