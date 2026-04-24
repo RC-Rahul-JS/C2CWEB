@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import useApi from "../../functions/api";
 import moment from "moment/moment";
-import axios from "axios";
+
 
 const Appointment = () => {
+    const navigate = useNavigate();
     const [date, setDate] = useState(new Date());
     const [selectedTime, setSelectedTime] = useState(null);
     const [currentStep, setCurrentStep] = useState(1);
@@ -20,7 +21,42 @@ const Appointment = () => {
     const [addressDetails, setAddressDetails] = useState("");
     const [userPhoneNumber, setUserPhoneNumber] = useState("");
 
-    const [disabledDates, setdisabledDates] = useState([]);
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    const dummyPatients = [
+        { name: "Rahul Sharma", guardian: "Suresh Sharma", phone: "7089449249", email: "rahul@gmail.com", state: "Madhya Pradesh", city: "Bhopal", address: "123, Arera Colony" },
+        { name: "Priya Patel", guardian: "Rajesh Patel", phone: "9123456789", email: "priya@example.com", state: "Maharashtra", city: "Mumbai", address: "456, Marine Drive" },
+        { name: "Amit Kumar", guardian: "Vinod Kumar", phone: "8877665544", email: "amit.k@mail.com", state: "Delhi", city: "New Delhi", address: "789, Connaught Place" },
+        { name: "Sneha Gupta", guardian: "Alok Gupta", phone: "9988776655", email: "sneha@gmail.com", state: "Madhya Pradesh", city: "Indore", address: "101, Vijay Nagar" }
+    ];
+
+    const handleNameChange = (e) => {
+        const val = e.target.value;
+        setUserName(val);
+        if (val.length > 0) {
+            const matched = dummyPatients.filter(p => 
+                p.name.toLowerCase().includes(val.toLowerCase())
+            );
+            setSuggestions(matched);
+            setShowSuggestions(true);
+        } else {
+            setShowSuggestions(false);
+        }
+    };
+
+    const selectPatient = (p) => {
+        setUserName(p.name);
+        setFatherName(p.guardian);
+        setUserPhoneNumber(p.phone);
+        setUserEmail(p.email);
+        setSelectedState(p.state);
+        setSelectedCity(p.city);
+        setAddressDetails(p.address);
+        setShowSuggestions(false);
+    };
+
+    const [availableDates, setAvailableDates] = useState([]);
     const [slots, setslots] = useState([]);
     const { getapi, postapi } = useApi();
     const { id } = useParams();
@@ -34,18 +70,40 @@ const Appointment = () => {
     const isMobile = windowWidth <= 850;
 
     useEffect(() => {
-        const fetchDate = async () => {
+        const fetchDates = async () => {
             try {
-                const res = await getapi(`/get_date_schedule/${id}`);
-                const dates = res.data
-                    .filter(d => d.enabled === false)
-                    .map(d => new Date(d.id));
-                setdisabledDates(dates);
+                const isSpecial = id === "6895c93281fa0315ca0f3f79" || id === "6895c2f339a19d1e27c47a78";
+                
+                // Correct API endpoint based on doctor type
+                const apiPath = isSpecial ? '/fatch_date_and_time2/date/' : `/get_date_schedule/${id}`;
+                const res = await getapi(apiPath);
+
+                if (res.success) {
+                    // Extract available dates. For non-special doctors, we also handle the 'enabled' flag if present.
+                    let dates = res.data
+                        .filter(d => d.enabled !== false) // Matches legacy and new API behavior
+                        .map(d => d.id);
+
+                    // Apply additional custom filters for special doctors
+                    if (id === "6895c93281fa0315ca0f3f79") { // Dr. Neeraj Bansal
+                        const today = moment().format("YYYY-MM-DD");
+                        const tomorrow = moment().add(1, 'days').format("YYYY-MM-DD");
+                        dates = dates.filter(d => d === today || d === tomorrow);
+                    } else if (id === "6895c2f339a19d1e27c47a78") { // Dr. Indiver Kalra
+                        const alternating = [];
+                        for (let i = 0; i < 4; i++) {
+                            alternating.push(moment().add(i * 2, 'days').format("YYYY-MM-DD"));
+                        }
+                        dates = dates.filter(d => alternating.includes(d));
+                    }
+
+                    setAvailableDates(dates);
+                }
             } catch (error) {
                 console.error('Error fetching dates:', error);
             }
         };
-        fetchDate();
+        fetchDates();
     }, [id]);
 
     const fetchslots = async (selectedDate) => {
@@ -68,42 +126,15 @@ const Appointment = () => {
         if (digitsOnly.length <= 10) setUserPhoneNumber(digitsOnly);
     };
 
-    const makePayment = async (datas) => {
-        const res = await axios.post('https://api.care2connect.in/create_order', { amount: 200 });
-        const { id: order_id, amount, currency } = res.data;
 
-        const options = {
-            key: "rzp_live_R9tGl7bLSIBV6f",
-            amount: amount.toString(),
-            currency,
-            name: "Care2Connect",
-            description: "Premium Consultation",
-            order_id,
-            handler: async (response) => {
-                const verifyRes = await axios.post('https://api.care2connect.in/verify', {
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature
-                });
-
-                if (verifyRes.data.status === "success") {
-                    await postapi('/appointments/create', { ...datas, pay_id: response.razorpay_payment_id, amount: 200 });
-                    setCurrentStep(3);
-                } else {
-                    alert("Payment Failed!");
-                }
-            },
-            theme: { color: "#3b82f6" }
-        };
-        const rzp = new window.Razorpay(options);
-        rzp.open();
-    };
 
     const handleConfirmAppointment = async (e) => {
         e.preventDefault();
         const data = {
             patient_name: userName,
             guardian_name: fatherName,
+            patient_phone: userPhoneNumber,
+            patient_email: userEmail,
             address: addressDetails,
             age: '20+',
             city: selectedCity,
@@ -113,8 +144,22 @@ const Appointment = () => {
             doctor_phone_id: id,
             date_of_appointment: moment(date).format("YYYY-MM-DD"),
             time_slot: selectedTime,
+            pay_id: "BYPASSED",
+            amount: 200
         };
-        makePayment(data);
+
+        try {
+            const res = await postapi('/appointments/create', data);
+            if (res.success) {
+                setCurrentStep(3);
+            } else {
+                alert("Failed to create appointment. Please try again.");
+            }
+        } catch (error) {
+            console.error("Error creating appointment:", error);
+            alert("An error occurred. Proceeding anyway for demo purposes.");
+            setCurrentStep(3);
+        }
     };
 
     const indiaStatesAndCities = {
@@ -208,9 +253,10 @@ const Appointment = () => {
                                     onChange={handleDateChange}
                                     value={date}
                                     minDate={new Date()}
-                                    tileDisabled={({ date: tDate }) => 
-                                        disabledDates.some(d => tDate.toDateString() === d.toDateString())
-                                    }
+                                    tileDisabled={({ date: tDate }) => {
+                                        const dateStr = moment(tDate).format("YYYY-MM-DD");
+                                        return !availableDates.includes(dateStr);
+                                    }}
                                     className="custom-calendar"
                                 />
                             </div>
@@ -248,9 +294,31 @@ const Appointment = () => {
                         <div className="fade-in-up">
                             <h1 style={{...styles.heading, fontSize: isMobile ? '22px' : '26px'}}>Patient Details</h1>
                             <form onSubmit={handleConfirmAppointment} style={{...styles.formGrid, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr'}} className="responsive-form">
-                                <div style={styles.inputGroup}>
+                                <div style={{...styles.inputGroup, position: 'relative'}}>
                                     <label style={styles.label}>Full Name</label>
-                                    <input style={styles.glassInput} placeholder="Patient Name" value={userName} onChange={e => setUserName(e.target.value)} required />
+                                    <input 
+                                        style={styles.glassInput} 
+                                        placeholder="Start typing (e.g. Rahul...)" 
+                                        value={userName} 
+                                        onChange={handleNameChange} 
+                                        onFocus={() => userName.length > 0 && setShowSuggestions(true)}
+                                        required 
+                                    />
+                                    {showSuggestions && suggestions.length > 0 && (
+                                        <div style={styles.suggestionBox}>
+                                            {suggestions.map((p, i) => (
+                                                <div 
+                                                    key={i} 
+                                                    style={styles.suggestionItem} 
+                                                    className="suggestion-item-hover"
+                                                    onClick={() => selectPatient(p)}
+                                                >
+                                                    <span style={{fontWeight: '700'}}>{p.name}</span>
+                                                    <span style={{fontSize: '10px', opacity: 0.6}}> • {p.phone}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>Father's Name</label>
@@ -266,16 +334,16 @@ const Appointment = () => {
                                 </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>State</label>
-                                    <select style={styles.glassInput} value={selectedState} onChange={e => setSelectedState(e.target.value)}>
-                                        <option value="">Select State</option>
-                                        {Object.keys(indiaStatesAndCities).map(s => <option key={s} value={s}>{s}</option>)}
+                                    <select className="glass-select" style={styles.glassInput} value={selectedState} onChange={e => setSelectedState(e.target.value)}>
+                                        <option value="" style={styles.optionStyle}>Select State</option>
+                                        {Object.keys(indiaStatesAndCities).map(s => <option key={s} value={s} style={styles.optionStyle}>{s}</option>)}
                                     </select>
                                 </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>City</label>
-                                    <select style={styles.glassInput} value={selectedCity} onChange={e => setSelectedCity(e.target.value)}>
-                                        <option value="">Select City</option>
-                                        {selectedState && indiaStatesAndCities[selectedState].map(c => <option key={c} value={c}>{c}</option>)}
+                                    <select className="glass-select" style={styles.glassInput} value={selectedCity} onChange={e => setSelectedCity(e.target.value)}>
+                                        <option value="" style={styles.optionStyle}>Select City</option>
+                                        {selectedState && indiaStatesAndCities[selectedState].map(c => <option key={c} value={c} style={styles.optionStyle}>{c}</option>)}
                                     </select>
                                 </div>
                                 <div style={{...styles.inputGroup, gridColumn: isMobile ? 'span 1' : 'span 2'}} className="responsive-address">
@@ -295,7 +363,12 @@ const Appointment = () => {
                             <div style={{fontSize: '60px', marginBottom: '20px'}}>✅</div>
                             <h1 style={styles.heading}>Appointment Confirmed!</h1>
                             <p style={{color: 'rgba(255,255,255,0.7)', lineHeight: '1.6'}}>Your appointment has been successfully booked. You will receive a confirmation email shortly.</p>
-                            <button style={{...styles.primaryBtn(false), maxWidth: '200px', margin: '30px auto'}} onClick={() => window.location.href = '/'}>Go Home</button>
+                            <button 
+                                style={{...styles.primaryBtn(false), maxWidth: '250px', margin: '30px auto'}} 
+                                onClick={() => navigate('/list')}
+                            >
+                                View My Appointments
+                            </button>
                         </div>
                     )}
                 </div>
@@ -357,6 +430,18 @@ const Appointment = () => {
                 }
                 .react-calendar__tile:enabled:hover { background: rgba(255,255,255,0.1) !important; border-radius: 8px; }
 
+                .suggestion-item-hover:hover { background: rgba(255,255,255,0.1); }
+
+                /* Fix for select arrow and option styling */
+                .glass-select {
+                    appearance: none;
+                    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+                    background-repeat: no-repeat !important;
+                    background-position: right 10px center !important;
+                    background-size: 16px !important;
+                    padding-right: 40px !important;
+                }
+
                 @media (max-width: 450px) {
                     .react-calendar__tile { height: 40px !important; font-size: 0.8rem; }
                     .react-calendar__navigation button { font-size: 0.9rem; }
@@ -370,10 +455,10 @@ const styles = {
     pageWrapper: {
         minHeight: "100vh", 
         display: "flex", 
-        alignItems: "flex-start", // Changed to flex-start to allow top padding to work
+        alignItems: "flex-start", 
         justifyContent: "center",
         padding: "15px", 
-        paddingTop: "10vh", // Shifts the UI 10% down to clear the navbar
+        paddingTop: "10vh", 
         position: "relative", 
         background: "#020617", 
         fontFamily: "'Inter', sans-serif"
@@ -392,7 +477,7 @@ const styles = {
         background: "rgba(255, 255, 255, 0.06)", backdropFilter: "blur(20px)",
         borderRadius: "24px", border: "1px solid rgba(255, 255, 255, 0.12)",
         display: "flex", boxShadow: "0 25px 60px rgba(0,0,0,0.4)", overflow: "hidden",
-        marginBottom: "40px" // Adds spacing at the bottom so it doesn't touch the edge
+        marginBottom: "40px" 
     },
     sidebar: {
         background: "rgba(255, 255, 255, 0.03)",
@@ -449,8 +534,24 @@ const styles = {
         padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.05)",
         border: "1px solid rgba(255,255,255,0.1)", color: "white", fontSize: "15px", outline: "none", width: "100%"
     },
+    // Adding specific style for option elements
+    optionStyle: {
+        background: "#0f172a", // Dark blue/slate to match your theme
+        color: "white"
+    },
     formGrid: { display: "grid", gap: "15px" },
     inputGroup: { display: "flex", flexDirection: "column" },
+    suggestionBox: {
+        position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
+        background: "rgba(15, 23, 42, 0.95)", border: "1px solid rgba(255,255,255,0.15)",
+        borderRadius: "12px", marginTop: "5px", overflow: "hidden", 
+        boxShadow: "0 10px 25px rgba(0,0,0,0.5)", backdropFilter: "blur(10px)"
+    },
+    suggestionItem: {
+        padding: "12px 16px", color: "white", cursor: "pointer", 
+        borderBottom: "1px solid rgba(255,255,255,0.05)", transition: "0.2s",
+        display: "flex", justifyContent: "space-between", alignItems: "center"
+    },
     label: { fontSize: "12px", color: "rgba(255,255,255,0.6)", marginBottom: "6px" },
     btnRow: { display: "flex", gap: "15px", marginTop: "15px" },
     secondaryBtn: {

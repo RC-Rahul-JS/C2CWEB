@@ -44,6 +44,7 @@ import Tstmnyl from './components/home/Tstmnyl.jsx'
 // import Test from './components/login/test';
 import Testing from './components/HMSComponent/Testing.jsx'
 import PanelConfiguration from './components/HMSComponent/Panel.jsx'
+import AppointmentDetails from './components/appointment/AppointmentDetails'
 
 
 const ProtectedRoute = () => {
@@ -141,6 +142,7 @@ const [error, setError] = useState(null);
                 <Route path="/diagonistic_profile/:id" element={<><Navbar/><DiagonisticProfile/><Footer/></>} />
                 <Route path="/hospital_profile/:id" element={<><Navbar/><HospitalProfile/><Footer/></>} />
                 <Route path="/list" element={<><Navbar/><AppointmentList/><Footer/></>} />
+                <Route path="/appointment_details/:id" element={<><Navbar/><AppointmentDetails/><Footer/></>} />
                 <Route path="/doctor_list" element={<><Navbar/><DoctorList/><Footer/></>} />
                 <Route path="/hospital_list" element={<><Navbar/><HospitalList/><Footer/></>} />
                 <Route path="/map" element={<><Navbar/><MapPage/><Footer/></>} />
