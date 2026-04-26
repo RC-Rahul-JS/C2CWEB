@@ -16,7 +16,7 @@ const AppointmentList = () => {
         window.addEventListener('resize', handleResize);
         const fetchAppointments = async () => {
             try {
-                const response = await getapi('/appointments/get');
+                const response = await getapi('c2c_app/appointments/917089449249');
                 if (response.success) setAppointments(response.data);
             } catch (error) {
                 console.error('Error fetching appointments:', error);

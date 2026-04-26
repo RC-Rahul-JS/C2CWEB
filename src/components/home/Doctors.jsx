@@ -36,17 +36,18 @@ const UnifiedMedicalPortal = () => {
   
   const fetch_doc = async () => {
     try {
-      const result = await getapi('/doctors');
+      const result = await getapi('/doctor_list');
       const rawDoctors = (result.data).map(element => ({
         id: element._id,
         name: element.name,
-        image: element.ImageUrl,
+        image: element.imageUrl,
         rating: 4.9,
         role: element.speciality,
         dept: element.specialization
       }));
       localStorage.setItem("userData", JSON.stringify(rawDoctors));
       setdoctors(rawDoctors);
+      console.log(rawDoctors)
     } catch (error) {
       console.error(error)
     }

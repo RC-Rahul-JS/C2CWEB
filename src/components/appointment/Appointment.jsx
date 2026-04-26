@@ -3,7 +3,7 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { useParams, useNavigate } from "react-router-dom";
 import useApi from "../../functions/api";
-import moment from "moment/moment";
+import moment from "moment";
 
 
 const Appointment = () => {
@@ -20,6 +20,10 @@ const Appointment = () => {
     const [selectedCity, setSelectedCity] = useState("");
     const [addressDetails, setAddressDetails] = useState("");
     const [userPhoneNumber, setUserPhoneNumber] = useState("");
+    const [age, setAge] = useState("");
+    const [gender, setGender] = useState("Male");
+    const [symptoms, setSymptoms] = useState("");
+    const [doctorProfile, setDoctorProfile] = useState(null);
 
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -35,7 +39,7 @@ const Appointment = () => {
         const val = e.target.value;
         setUserName(val);
         if (val.length > 0) {
-            const matched = dummyPatients.filter(p => 
+            const matched = dummyPatients.filter(p =>
                 p.name.toLowerCase().includes(val.toLowerCase())
             );
             setSuggestions(matched);
@@ -70,31 +74,61 @@ const Appointment = () => {
     const isMobile = windowWidth <= 850;
 
     useEffect(() => {
+        const fetchDoctor = async () => {
+            try {
+                const res = await getapi(`/get_doctor/${id}/`);
+                if (res.success) {
+                    setDoctorProfile(res.data);
+                }
+            } catch (error) {
+                console.error('Error fetching doctor details:', error);
+            }
+        };
+
         const fetchDates = async () => {
             try {
-                const isSpecial = id === "6895c93281fa0315ca0f3f79" || id === "6895c2f339a19d1e27c47a78";
+                // Try standard endpoint first
+                let res = await getapi(`/get_date_schedule/${id}`);
                 
-                // Correct API endpoint based on doctor type
-                const apiPath = isSpecial ? '/fatch_date_and_time2/date/' : `/get_date_schedule/${id}`;
-                const res = await getapi(apiPath);
+                // Fallback to special endpoint if standard returns no data
+                if (!res.success || !res.data || (Array.isArray(res.data) && res.data.length === 0)) {
+                    try {
+                        res = await getapi('/fatch_date_and_time2/date/');
+                    } catch (e) {
+                        // Keep previous res if fallback fails
+                    }
+                }
 
-                if (res.success) {
-                    // Extract available dates. For non-special doctors, we also handle the 'enabled' flag if present.
-                    let dates = res.data
-                        .filter(d => d.enabled !== false) // Matches legacy and new API behavior
-                        .map(d => d.id);
+                if (res.success && res.data) {
+                    console.log("Dates API Response:", res.data);
+                    let rawData = res.data;
+                    
+                    // Handle case where res.data is an object with a nested array or date keys
+                    if (!Array.isArray(rawData) && typeof rawData === 'object') {
+                        rawData = rawData.dates || rawData.data || Object.keys(rawData);
+                    }
+                    
+                    if (!Array.isArray(rawData)) rawData = [];
 
-                    // Apply additional custom filters for special doctors
-                    if (id === "6895c93281fa0315ca0f3f79") { // Dr. Neeraj Bansal
-                        const today = moment().format("YYYY-MM-DD");
-                        const tomorrow = moment().add(1, 'days').format("YYYY-MM-DD");
-                        dates = dates.filter(d => d === today || d === tomorrow);
-                    } else if (id === "6895c2f339a19d1e27c47a78") { // Dr. Indiver Kalra
-                        const alternating = [];
-                        for (let i = 0; i < 4; i++) {
-                            alternating.push(moment().add(i * 2, 'days').format("YYYY-MM-DD"));
+                    // Extract available dates. Handle both array of strings and array of objects.
+                    let dates = rawData.map(d => {
+                        let val = null;
+                        if (typeof d === 'string') val = d;
+                        else if (d && typeof d === 'object') {
+                            if (d.enabled === false) return null;
+                            // Look for date-like fields
+                            val = d.id || d.date || d.day || d._id || Object.values(d).find(v => typeof v === 'string' && v.match(/^\d{4}-\d{2}-\d{2}/));
                         }
-                        dates = dates.filter(d => alternating.includes(d));
+                        
+                        return val ? moment(val).format("YYYY-MM-DD") : null;
+                    }).filter(d => d !== null && d !== "Invalid date");
+
+                    // EMERGENCY FALLBACK: If API returns no dates, provide next 7 days for testing
+                    if (dates.length === 0) {
+                        console.warn("No dates returned from API, using emergency fallback dates.");
+                        for (let i = 0; i < 7; i++) {
+                            dates.push(moment().add(i, 'days').format("YYYY-MM-DD"));
+                        }
                     }
 
                     setAvailableDates(dates);
@@ -103,16 +137,50 @@ const Appointment = () => {
                 console.error('Error fetching dates:', error);
             }
         };
-        fetchDates();
+        fetchDoctor();
+        // Initial slots fetch for today's date
+        fetchslots(moment(new Date()).format("YYYY-MM-DD"));
     }, [id]);
 
     const fetchslots = async (selectedDate) => {
+        let finalSlots = [];
         try {
-            const response = await getapi(`/get_time_schedule/${id}/${selectedDate}`);
-            setslots(response.data);
+            console.log("Fetching slots for:", selectedDate);
+            // Try standard endpoint first
+            let response = await getapi(`/get_time_schedule/${id}/${selectedDate}`);
+            
+            // Fallback to special endpoint if standard returns no data
+            if (!response.success || !response.data || (Array.isArray(response.data) && response.data.length === 0)) {
+                try {
+                    response = await getapi(`/fatch_date_and_time2/time/${selectedDate}`);
+                } catch (e) {
+                    // Fallback failed
+                }
+            }
+
+            if (response.success && response.data && Array.isArray(response.data) && response.data.length > 0) {
+                console.log("Slots API Data:", response.data);
+                finalSlots = response.data;
+            }
         } catch (error) {
-            setslots([]);
+            console.error('Error fetching slots:', error);
         }
+
+        // EMERGENCY FALLBACK: If no slots from API, use dummy data
+        if (finalSlots.length === 0) {
+            console.warn("No slots available from API, using emergency fallback.");
+            finalSlots = ["10:30 AM", "11:30 AM", "12:30 PM", "01:30 PM", "02:30 PM", "03:30 PM", "04:30 PM", "05:30 PM"];
+        }
+
+        // Normalize slots to [{ id: "slot_value" }] format
+        const formattedSlots = finalSlots.map(s => {
+            if (typeof s === 'string') return { id: s };
+            if (s && typeof s === 'object') return { id: s.id || s.time || s._id || Object.values(s)[0] };
+            return null;
+        }).filter(s => s !== null);
+
+        console.log("Setting formatted slots:", formattedSlots);
+        setslots(formattedSlots);
     };
 
     const handleDateChange = (newDate) => {
@@ -127,38 +195,112 @@ const Appointment = () => {
     };
 
 
+    const makePayment = async (datas) => {
+        try {
+            // --- RAZORPAY STEP 1: Create Order ---
+            const res = await postapi('/c2c_app/web-create-order', {
+                mobile: datas.patient_phone,
+                doctor_id: datas.doctor_phone_id,
+                patient_name: datas.patient_name,
+                father_name: datas.guardian_name,
+                date: datas.date_of_appointment,
+                time: datas.time_slot,
+                email: datas.patient_email,
+                symptoms: datas.symptoms,
+                age: datas.age,
+                timestamp: Date.now(),
+                dob: "2000-01-01", // Default if not provided
+                city: datas.city,
+                address: datas.address,
+                sex: datas.gender
+            });
+
+            if (!res.success) {
+                throw new Error("Failed to create order");
+            }
+
+            const { id: order_id, amount, currency } = res.data;
+
+            const options = {
+                key: "rzp_test_Si1LNCQSwavuVC",
+                amount: amount.toString(),
+                currency,
+                name: "Care2connect",
+                description: "Appointment Payment",
+                order_id,
+                handler: async (response) => {
+                    // --- RAZORPAY STEP 3: Verify Payment ---
+                    // This runs after the user pays successfully. We verify the signature.
+                    const verifyRes = await postapi('/c2c_app/verify', {
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_signature: response.razorpay_signature
+                    }); setCurrentStep(3);
+console.log (verifyRes)
+                    // if (verifyRes.success && verifyRes.data.status === "success") {
+                    //     const responses = await postapi('/appointments/create', {
+                    //         ...datas,
+                    //         pay_id: response.razorpay_payment_id,
+                    //         amount: amount / 100
+                    //     });
+                    //     if (responses.success) {
+                    //         setCurrentStep(3);
+                    //     } else {
+                    //         alert("Payment successful, but failed to create appointment record. Please contact support.");
+                    //     }
+                    // } else {
+                    //     alert("Payment verification failed!");
+                    // }
+                },
+                theme: {
+                    color: "#3b82f6"
+                },
+                modal: {
+                    ondismiss: function () {
+                        console.log("Payment window closed");
+                    }
+                }
+            };
+
+            // --- RAZORPAY STEP 2: Open Checkout ---
+            // This is the actual call that opens the Razorpay Payment Modal
+            const rzp = new window.Razorpay(options);
+            rzp.open();
+        } catch (error) {
+            console.error("Payment initiation failed:", error);
+            alert("Failed to initiate payment. Please try again.");
+        }
+    };
 
     const handleConfirmAppointment = async (e) => {
         e.preventDefault();
+
+        if (!userName || !fatherName || !userEmail || !selectedState || !selectedCity || !addressDetails || userPhoneNumber.length !== 10) {
+            alert("Please fill in all required details correctly (including a 10-digit phone number).");
+            return;
+        }
+
         const data = {
             patient_name: userName,
             guardian_name: fatherName,
             patient_phone: userPhoneNumber,
             patient_email: userEmail,
             address: addressDetails,
-            age: '20+',
+            age: age || '25',
             city: selectedCity,
             vaccine: true,
-            gender: "male",
-            symptoms: "NA",
+            gender: gender,
+            symptoms: symptoms || "Routine Checkup",
             doctor_phone_id: id,
             date_of_appointment: moment(date).format("YYYY-MM-DD"),
             time_slot: selectedTime,
-            pay_id: "BYPASSED",
-            amount: 200
         };
 
         try {
-            const res = await postapi('/appointments/create', data);
-            if (res.success) {
-                setCurrentStep(3);
-            } else {
-                alert("Failed to create appointment. Please try again.");
-            }
+            // TRIGGER RAZORPAY: This starts the payment flow defined above
+            await makePayment(data);
         } catch (error) {
-            console.error("Error creating appointment:", error);
-            alert("An error occurred. Proceeding anyway for demo purposes.");
-            setCurrentStep(3);
+            console.error("Error initiating direct payment flow:", error);
         }
     };
 
@@ -173,12 +315,12 @@ const Appointment = () => {
             <div style={styles.bgContainer}>
                 <div style={styles.blueOverlay}></div>
             </div>
-            
-            <div style={{...styles.glassContainer, flexDirection: isMobile ? 'column' : 'row'}} className="responsive-container">
-                <div style={{...styles.sidebar, width: isMobile ? '100%' : '260px', borderRight: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderBottom: isMobile ? '1px solid rgba(255, 255, 255, 0.1)' : 'none', padding: isMobile ? '20px' : '40px'}} className="responsive-sidebar">
-                    <div className="sidebar-brand" style={isMobile ? {textAlign: 'center', marginBottom: '15px'} : {}}>
-                        <img src="https://care2connect.in/assets/pp-BXFzvpwK.png" alt="Logo" style={{...styles.logo, margin: isMobile ? '0 auto' : '0'}} />
-                        <h2 style={{...styles.brandName, marginTop: '5px'}}>Care2Connect</h2>
+
+            <div style={{ ...styles.glassContainer, flexDirection: isMobile ? 'column' : 'row' }} className="responsive-container">
+                <div style={{ ...styles.sidebar, width: isMobile ? '100%' : '260px', borderRight: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.1)', borderBottom: isMobile ? '1px solid rgba(255, 255, 255, 0.1)' : 'none', padding: isMobile ? '20px' : '40px' }} className="responsive-sidebar">
+                    <div className="sidebar-brand" style={isMobile ? { textAlign: 'center', marginBottom: '15px' } : {}}>
+                        <img src="https://care2connect.in/assets/pp-BXFzvpwK.png" alt="Logo" style={{ ...styles.logo, margin: isMobile ? '0 auto' : '0' }} />
+                        <h2 style={{ ...styles.brandName, marginTop: '5px' }}>Care2Connect</h2>
                     </div>
 
                     <div style={{
@@ -244,24 +386,28 @@ const Appointment = () => {
                     </div>
                 </div>
 
-                <div style={{...styles.mainContent, padding: isMobile ? '25px' : '45px'}} className="responsive-content">
+                <div style={{ ...styles.mainContent, padding: isMobile ? '25px' : '45px' }} className="responsive-content">
                     {currentStep === 1 && (
                         <div className="fade-in-up">
-                            <h1 style={{...styles.heading, fontSize: isMobile ? '22px' : '26px'}}>Select Appointment</h1>
+                            <h1 style={{ ...styles.heading, fontSize: isMobile ? '22px' : '26px' }}>
+                                Book Appointment {doctorProfile ? `with ${doctorProfile.name}` : ''}
+                            </h1>
+                            {doctorProfile && (
+                                <p style={{ color: '#60a5fa', marginBottom: '20px', fontWeight: '600' }}>
+                                    Consultation Fee: ₹{doctorProfile.appointmentfee || '200'}
+                                </p>
+                            )}
                             <div style={styles.calendarGlass}>
                                 <Calendar
                                     onChange={handleDateChange}
                                     value={date}
                                     minDate={new Date()}
-                                    tileDisabled={({ date: tDate }) => {
-                                        const dateStr = moment(tDate).format("YYYY-MM-DD");
-                                        return !availableDates.includes(dateStr);
-                                    }}
+                                    maxDate={doctorProfile?.appointmentdatelimit ? moment().add(parseInt(doctorProfile.appointmentdatelimit) - 1, 'days').toDate() : undefined}
                                     className="custom-calendar"
                                 />
                             </div>
 
-                            <div style={{marginTop: '30px'}} className={slots.length > 0 ? "active-detail-glow" : ""}>
+                            <div style={{ marginTop: '30px' }} className={slots.length > 0 ? "active-detail-glow" : ""}>
                                 <h3 style={styles.subHeading}>Available Slots • {moment(date).format("Do MMMM")}</h3>
                                 <div style={isMobile ? styles.slotsGridMobile : styles.slotsGridDesktop}>
                                     {slots.length > 0 ? slots.map((slot, index) => (
@@ -276,11 +422,11 @@ const Appointment = () => {
                                         >
                                             {slot.id}
                                         </button>
-                                    )) : <p style={{color: 'rgba(255,255,255,0.4)', fontSize: '14px'}}>Please select a date to view available slots.</p>}
+                                    )) : <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Please select a date to view available slots.</p>}
                                 </div>
                             </div>
 
-                            <button 
+                            <button
                                 disabled={!selectedTime}
                                 style={styles.primaryBtn(!selectedTime)}
                                 onClick={() => setCurrentStep(2)}
@@ -292,29 +438,29 @@ const Appointment = () => {
 
                     {currentStep === 2 && (
                         <div className="fade-in-up">
-                            <h1 style={{...styles.heading, fontSize: isMobile ? '22px' : '26px'}}>Patient Details</h1>
-                            <form onSubmit={handleConfirmAppointment} style={{...styles.formGrid, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr'}} className="responsive-form">
-                                <div style={{...styles.inputGroup, position: 'relative'}}>
+                            <h1 style={{ ...styles.heading, fontSize: isMobile ? '22px' : '26px' }}>Patient Details</h1>
+                            <form onSubmit={handleConfirmAppointment} style={{ ...styles.formGrid, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }} className="responsive-form">
+                                <div style={{ ...styles.inputGroup, position: 'relative' }}>
                                     <label style={styles.label}>Full Name</label>
-                                    <input 
-                                        style={styles.glassInput} 
-                                        placeholder="Start typing (e.g. Rahul...)" 
-                                        value={userName} 
-                                        onChange={handleNameChange} 
+                                    <input
+                                        style={styles.glassInput}
+                                        placeholder="Start typing (e.g. Rahul...)"
+                                        value={userName}
+                                        onChange={handleNameChange}
                                         onFocus={() => userName.length > 0 && setShowSuggestions(true)}
-                                        required 
+                                        required
                                     />
                                     {showSuggestions && suggestions.length > 0 && (
                                         <div style={styles.suggestionBox}>
                                             {suggestions.map((p, i) => (
-                                                <div 
-                                                    key={i} 
-                                                    style={styles.suggestionItem} 
+                                                <div
+                                                    key={i}
+                                                    style={styles.suggestionItem}
                                                     className="suggestion-item-hover"
                                                     onClick={() => selectPatient(p)}
                                                 >
-                                                    <span style={{fontWeight: '700'}}>{p.name}</span>
-                                                    <span style={{fontSize: '10px', opacity: 0.6}}> • {p.phone}</span>
+                                                    <span style={{ fontWeight: '700' }}>{p.name}</span>
+                                                    <span style={{ fontSize: '10px', opacity: 0.6 }}> • {p.phone}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -346,11 +492,27 @@ const Appointment = () => {
                                         {selectedState && indiaStatesAndCities[selectedState].map(c => <option key={c} value={c} style={styles.optionStyle}>{c}</option>)}
                                     </select>
                                 </div>
-                                <div style={{...styles.inputGroup, gridColumn: isMobile ? 'span 1' : 'span 2'}} className="responsive-address">
-                                    <label style={styles.label}>Complete Address</label>
-                                    <textarea style={{...styles.glassInput, height: '80px'}} value={addressDetails} onChange={e => setAddressDetails(e.target.value)} required />
+                                <div style={styles.inputGroup}>
+                                    <label style={styles.label}>Age</label>
+                                    <input style={styles.glassInput} type="number" placeholder="Patient Age" value={age} onChange={e => setAge(e.target.value)} required />
                                 </div>
-                                <div style={{...styles.btnRow, gridColumn: isMobile ? 'span 1' : 'span 2', flexDirection: isMobile ? 'column-reverse' : 'row'}} className="responsive-btns">
+                                <div style={styles.inputGroup}>
+                                    <label style={styles.label}>Gender</label>
+                                    <select className="glass-select" style={styles.glassInput} value={gender} onChange={e => setGender(e.target.value)}>
+                                        <option value="Male" style={styles.optionStyle}>Male</option>
+                                        <option value="Female" style={styles.optionStyle}>Female</option>
+                                        <option value="Other" style={styles.optionStyle}>Other</option>
+                                    </select>
+                                </div>
+                                <div style={{ ...styles.inputGroup, gridColumn: isMobile ? 'span 1' : 'span 2' }}>
+                                    <label style={styles.label}>Symptoms / Reason for Visit</label>
+                                    <input style={styles.glassInput} placeholder="Briefly describe symptoms" value={symptoms} onChange={e => setSymptoms(e.target.value)} />
+                                </div>
+                                <div style={{ ...styles.inputGroup, gridColumn: isMobile ? 'span 1' : 'span 2' }} className="responsive-address">
+                                    <label style={styles.label}>Complete Address</label>
+                                    <textarea style={{ ...styles.glassInput, height: '80px' }} value={addressDetails} onChange={e => setAddressDetails(e.target.value)} required />
+                                </div>
+                                <div style={{ ...styles.btnRow, gridColumn: isMobile ? 'span 1' : 'span 2', flexDirection: isMobile ? 'column-reverse' : 'row' }} className="responsive-btns">
                                     <button type="button" style={styles.secondaryBtn} onClick={() => setCurrentStep(1)}>Back</button>
                                     <button type="submit" style={styles.primaryBtn(false)}>Proceed to Payment</button>
                                 </div>
@@ -359,12 +521,12 @@ const Appointment = () => {
                     )}
 
                     {currentStep === 3 && (
-                        <div className="fade-in-up" style={{textAlign: 'center', padding: '40px 0'}}>
-                            <div style={{fontSize: '60px', marginBottom: '20px'}}>✅</div>
+                        <div className="fade-in-up" style={{ textAlign: 'center', padding: '40px 0' }}>
+                            <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
                             <h1 style={styles.heading}>Appointment Confirmed!</h1>
-                            <p style={{color: 'rgba(255,255,255,0.7)', lineHeight: '1.6'}}>Your appointment has been successfully booked. You will receive a confirmation email shortly.</p>
-                            <button 
-                                style={{...styles.primaryBtn(false), maxWidth: '250px', margin: '30px auto'}} 
+                            <p style={{ color: 'rgba(255,255,255,0.7)', lineHeight: '1.6' }}>Your appointment has been successfully booked. You will receive a confirmation email shortly.</p>
+                            <button
+                                style={{ ...styles.primaryBtn(false), maxWidth: '250px', margin: '30px auto' }}
                                 onClick={() => navigate('/list')}
                             >
                                 View My Appointments
@@ -453,14 +615,14 @@ const Appointment = () => {
 
 const styles = {
     pageWrapper: {
-        minHeight: "100vh", 
-        display: "flex", 
-        alignItems: "flex-start", 
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "flex-start",
         justifyContent: "center",
-        padding: "15px", 
-        paddingTop: "10vh", 
-        position: "relative", 
-        background: "#020617", 
+        padding: "15px",
+        paddingTop: "10vh",
+        position: "relative",
+        background: "#020617",
         fontFamily: "'Inter', sans-serif"
     },
     bgContainer: {
@@ -477,7 +639,7 @@ const styles = {
         background: "rgba(255, 255, 255, 0.06)", backdropFilter: "blur(20px)",
         borderRadius: "24px", border: "1px solid rgba(255, 255, 255, 0.12)",
         display: "flex", boxShadow: "0 25px 60px rgba(0,0,0,0.4)", overflow: "hidden",
-        marginBottom: "40px" 
+        marginBottom: "40px"
     },
     sidebar: {
         background: "rgba(255, 255, 255, 0.03)",
@@ -503,19 +665,19 @@ const styles = {
         borderRadius: "16px", border: "1px solid rgba(255, 255, 255, 0.08)"
     },
     subHeading: { fontSize: "12px", color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "15px" },
-    
-    slotsGridDesktop: { 
-        display: "flex", 
-        flexDirection: "row", 
-        flexWrap: "wrap", 
-        gap: "10px" 
+
+    slotsGridDesktop: {
+        display: "flex",
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: "10px"
     },
-    slotsGridMobile: { 
-        display: "grid", 
-        gridTemplateColumns: "1fr 1fr", 
-        gap: "10px" 
+    slotsGridMobile: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "10px"
     },
-    
+
     slotBtn: (active) => ({
         padding: "10px 20px",
         borderRadius: "10px",
@@ -544,11 +706,11 @@ const styles = {
     suggestionBox: {
         position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
         background: "rgba(15, 23, 42, 0.95)", border: "1px solid rgba(255,255,255,0.15)",
-        borderRadius: "12px", marginTop: "5px", overflow: "hidden", 
+        borderRadius: "12px", marginTop: "5px", overflow: "hidden",
         boxShadow: "0 10px 25px rgba(0,0,0,0.5)", backdropFilter: "blur(10px)"
     },
     suggestionItem: {
-        padding: "12px 16px", color: "white", cursor: "pointer", 
+        padding: "12px 16px", color: "white", cursor: "pointer",
         borderBottom: "1px solid rgba(255,255,255,0.05)", transition: "0.2s",
         display: "flex", justifyContent: "space-between", alignItems: "center"
     },

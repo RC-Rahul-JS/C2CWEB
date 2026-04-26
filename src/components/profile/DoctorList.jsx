@@ -36,7 +36,7 @@ const DoctorList = () => {
 
   const fetch_doc = async () => {
     try {
-      const result = await getapi('/doctors');
+      const result = await getapi('/doctor_list');
       const rawDoctors = result.data;
       setdoctors(rawDoctors);
     } catch (error) {
@@ -146,7 +146,7 @@ const DoctorList = () => {
                 }}
               >
                 <img
-                  src={item.documents?.photo || 'https://via.placeholder.com/280'}
+                  src={item.imageUrl || item.documents?.photo || 'https://via.placeholder.com/280'}
                   alt="Profile"
                   style={{
                     width: '100%',

@@ -21,10 +21,12 @@ const DoctorProfile = () => {
 
   const fetch_doc = async () => {
     try {
-      const result = await getapi('/doctors/' + id);
+      console.log("Current Doctor ID from URL:", id);
+      const result = await getapi('/get_doctor/' + id+'/' );
+      console.log("Fetched Doctor Profile Data:", result.data);
       setprofile(result.data);
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching doctor profile:", error);
     }
   };
 
@@ -82,7 +84,7 @@ const DoctorProfile = () => {
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
           }}>
             <img
-              src={profile?.documents?.photo}
+              src={profile?.imageUrl}
               alt="Doctor"
               style={{
                 width: '100%',
@@ -189,7 +191,7 @@ const DoctorProfile = () => {
             </button>
             <div style={{ marginTop: '10px' }}>
               <span style={{ fontSize: 14, color: 'green', fontWeight: 700 }}>
-                Consultation Fee: ₹{profile.fees || "Consultation TBD"}
+                Consultation Fee: ₹{profile.appointmentfee || "Consultation TBD"}
               </span>
             </div>
           </div>
