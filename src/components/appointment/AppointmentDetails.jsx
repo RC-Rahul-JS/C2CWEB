@@ -8,22 +8,29 @@ const AppointmentDetails = () => {
     const navigate = useNavigate();
     const { getapi } = useApi();
     const [appointment, setAppointment] = useState(null);
+    const [userProfile, setUserProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        document.title = appointment ? `Appointment with ${appointment.doctorName}` : "Appointment Details - Care2Connect";
+    }, [appointment]);
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
         window.addEventListener('resize', handleResize);
         
         const fetchDetails = async () => {
+            console.log("Fetching details for ID:", id);
             setLoading(true);
             let found = null;
             
             try {
                 // 1. Try fetching the specific appointment directly
-                const res = await getapi(`/appointments/get/${id}`);
-                if (res.success && res.data && !Array.isArray(res.data)) {
-                    found = res.data;
+                const res = await getapi(`c2c_app/appointments/${id}`);
+                console.log("Direct Fetch Response:", res);
+                if (res.success) {
+                    found = res.data.data || res.data;
                 }
             } catch (error) {
                 console.warn("Direct fetch failed, trying list fallback...", error);
@@ -32,9 +39,13 @@ const AppointmentDetails = () => {
             // 2. If not found yet, try fetching the full list and filtering
             if (!found) {
                 try {
-                    const listRes = await getapi('/appointments/get');
-                    if (listRes.success && Array.isArray(listRes.data)) {
-                        found = listRes.data.find(a => String(a.id || a._id) === String(id));
+                    console.log("Attempting list fallback...");
+                    const listRes = await getapi('c2c_app/appointments');
+                    const list = listRes.data.data || (Array.isArray(listRes.data) ? listRes.data : []);
+                    console.log("List fallback data:", list);
+                    if (listRes.success && Array.isArray(list)) {
+                        found = list.find(a => String(a.id || a._id) === String(id));
+                        console.log("Found in list:", found);
                     }
                 } catch (error) {
                     console.error("List fallback also failed:", error);
@@ -42,6 +53,16 @@ const AppointmentDetails = () => {
             }
 
             setAppointment(found);
+            
+            try {
+                const profileRes = await getapi('/profile');
+                if (profileRes.success) {
+                    setUserProfile(profileRes.data);
+                }
+            } catch (error) {
+                console.error("Error fetching profile:", error);
+            }
+
             setLoading(false);
         };
 
@@ -84,8 +105,17 @@ const AppointmentDetails = () => {
 
             <div style={{...styles.glassContainer, maxWidth: '800px'}} className="fade-in-up">
                 <div style={styles.header}>
-                    <button style={styles.iconBtn} onClick={() => navigate('/list')}>←</button>
-                    <h1 style={styles.heading}>Appointment Details</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        <button style={styles.iconBtn} onClick={() => navigate('/list')}>←</button>
+                        {appointment.doctorPic && (
+                            <img 
+                                src={appointment.doctorPic} 
+                                alt={appointment.doctorName} 
+                                style={styles.doctorImg} 
+                            />
+                        )}
+                        <h1 style={styles.heading}>Appointment Details</h1>
+                    </div>
                     <div style={styles.statusBadge}>{(appointment.status || "UPCOMING").toUpperCase()}</div>
                 </div>
 
@@ -94,16 +124,16 @@ const AppointmentDetails = () => {
                     <div style={styles.section}>
                         <h2 style={styles.sectionTitle}>👤 Patient Identity</h2>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Full Name" value={appointment.patient_name} />
-                            <InfoItem label="Guardian's Name" value={appointment.guardian_name} />
+                            <InfoItem label="Full Name" value={appointment.patientName} />
+                            <InfoItem label="Guardian's Name" value={appointment.fatherName} />
                         </div>
                         <div style={styles.infoRow}>
                             <InfoItem label="Gender" value={appointment.gender} />
-                            <InfoItem label="Age Group" value={appointment.age} />
+                            <InfoItem label="Date of Birth" value={appointment.dob} />
                         </div>
                         <div style={styles.infoRow}>
                             <InfoItem label="Vaccine Requirement" value={appointment.vaccine ? "YES" : "NO"} />
-                            <InfoItem label="Status" value={appointment.status || "Confirmed"} color="#60a5fa" />
+                            <InfoItem label="Status" value={appointment.status} color="#60a5fa" />
                         </div>
                     </div>
 
@@ -111,11 +141,11 @@ const AppointmentDetails = () => {
                     <div style={styles.section}>
                         <h2 style={styles.sectionTitle}>📍 Contact & Location</h2>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Phone Number" value={appointment.patient_phone} />
+                            <InfoItem label="Phone Number" value={userProfile?.phone || appointment.patient_phone} />
                             <InfoItem label="Email Address" value={appointment.patient_email} />
                         </div>
                         <div style={styles.infoRow}>
-                            <InfoItem label="State" value={appointment.state || "Madhya Pradesh"} />
+                            <InfoItem label="State" value={appointment.state} />
                             <InfoItem label="City" value={appointment.city} />
                         </div>
                         <div style={styles.fullWidthInfo}>
@@ -127,12 +157,12 @@ const AppointmentDetails = () => {
                     <div style={styles.section}>
                         <h2 style={styles.sectionTitle}>🏥 Booking & Clinical Details</h2>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Assigned Doctor" value={appointment.doctor_name} />
-                            <InfoItem label="Department / Speciality" value={appointment.doctor_speciality} />
+                            <InfoItem label="Assigned Doctor" value={appointment.doctorName} />
+                            <InfoItem label="Department / Speciality" value={appointment.specialty} />
                         </div>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Appointment Date" value={moment(appointment.date_of_appointment || appointment.created_at).format("dddd, Do MMMM YYYY")} />
-                            <InfoItem label="Scheduled Time" value={appointment.time_slot} />
+                            <InfoItem label="Appointment Date" value={moment(appointment.date).format("dddd, Do MMMM YYYY")} />
+                            <InfoItem label="Scheduled Time" value={appointment.time} />
                         </div>
                         <div style={styles.fullWidthInfo}>
                             <InfoItem label="Reported Symptoms" value={appointment.symptoms} />
@@ -147,8 +177,8 @@ const AppointmentDetails = () => {
                     <div style={styles.section}>
                         <h2 style={styles.sectionTitle}>💳 Financial Summary</h2>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Consultation Fee" value={appointment.amount ? `₹${appointment.amount}` : '₹200'} color="#4ade80" />
-                            <InfoItem label="Transaction Status" value="COMPLETED" color="#4ade80" />
+                            <InfoItem label="Consultation Fee" value={appointment.amount ? `₹${appointment.amount}` : 'N/A'} color="#4ade80" />
+                            <InfoItem label="Transaction Status" value={appointment.pay_id ? "COMPLETED" : "PENDING"} color="#4ade80" />
                         </div>
                         <div style={styles.infoRow}>
                             <InfoItem label="Reference ID" value={appointment.pay_id || "BYPASSED"} />
@@ -175,12 +205,15 @@ const AppointmentDetails = () => {
     );
 };
 
-const InfoItem = ({ label, value, color }) => (
-    <div style={styles.infoItem}>
-        <span style={styles.label}>{label}</span>
-        <span style={{...styles.value, color: color || 'white'}}>{(value && value !== 'undefined') ? value : 'N/A'}</span>
-    </div>
-);
+const InfoItem = ({ label, value, color }) => {
+    const displayValue = (value && value !== 'undefined' && value !== 'Invalid date') ? value : 'N/A';
+    return (
+        <div style={styles.infoItem}>
+            <span style={styles.label}>{label}</span>
+            <span style={{...styles.value, color: color || 'white'}}>{displayValue}</span>
+        </div>
+    );
+};
 
 const styles = {
     pageWrapper: {
@@ -206,6 +239,7 @@ const styles = {
     header: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "30px", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "20px" },
     iconBtn: { background: "rgba(255,255,255,0.05)", border: "none", color: "white", fontSize: "20px", cursor: "pointer", padding: "8px 12px", borderRadius: "10px" },
     heading: { color: "white", fontSize: "22px", fontWeight: "700", margin: 0 },
+    doctorImg: { width: "45px", height: "45px", borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.2)" },
     statusBadge: { padding: "6px 12px", borderRadius: "10px", background: "rgba(96, 165, 250, 0.15)", color: "#60a5fa", fontSize: "10px", fontWeight: "800", letterSpacing: "1px" },
     contentGrid: { display: "flex", flexDirection: "column", gap: "25px" },
     section: { background: "rgba(255,255,255,0.02)", padding: "20px", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.05)" },

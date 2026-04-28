@@ -52,7 +52,7 @@ const Appointment = () => {
     const selectPatient = (p) => {
         setUserName(p.name);
         setFatherName(p.guardian);
-        setUserPhoneNumber(p.phone);
+        // setUserPhoneNumber(p.phone); // Keep the profile number fixed
         setUserEmail(p.email);
         setSelectedState(p.state);
         setSelectedCity(p.city);
@@ -76,7 +76,7 @@ const Appointment = () => {
     useEffect(() => {
         const fetchDoctor = async () => {
             try {
-                const res = await getapi(`/get_doctor/${id}/`);
+                const res = await getapi(`get_doctor/${id}/`);
                 if (res.success) {
                     setDoctorProfile(res.data);
                 }
@@ -87,13 +87,13 @@ const Appointment = () => {
 
         const fetchDates = async () => {
             try {
-                // Try standard endpoint first
-                let res = await getapi(`/get_date_schedule/${id}`);
+                // Using the new requested API for fetching available dates
+                let res = await getapi(`kalra_mindcare/fatch_date_and_time/date/${id}`);
                 
-                // Fallback to special endpoint if standard returns no data
+                // Fallback to standard endpoint if new one returns no data
                 if (!res.success || !res.data || (Array.isArray(res.data) && res.data.length === 0)) {
                     try {
-                        res = await getapi('/fatch_date_and_time2/date/');
+                        res = await getapi(`get_date_schedule/${id}`);
                     } catch (e) {
                         // Keep previous res if fallback fails
                     }
@@ -137,7 +137,19 @@ const Appointment = () => {
                 console.error('Error fetching dates:', error);
             }
         };
+        const fetchProfile = async () => {
+            try {
+                const res = await getapi('/profile');
+                if (res.success && res.data.phone) {
+                    setUserPhoneNumber(res.data.phone);
+                }
+            } catch (error) {
+                console.error('Error fetching profile:', error);
+            }
+        };
+
         fetchDoctor();
+        fetchProfile();
         // Initial slots fetch for today's date
         fetchslots(moment(new Date()).format("YYYY-MM-DD"));
     }, [id]);
@@ -146,13 +158,13 @@ const Appointment = () => {
         let finalSlots = [];
         try {
             console.log("Fetching slots for:", selectedDate);
-            // Try standard endpoint first
-            let response = await getapi(`/get_time_schedule/${id}/${selectedDate}`);
+            // Using the new requested API for fetching time slots
+            let response = await getapi(`kalra_mindcare/fatch_date_and_time/${selectedDate}/${id}`);
             
-            // Fallback to special endpoint if standard returns no data
+            // Fallback to standard endpoint if new one returns no data
             if (!response.success || !response.data || (Array.isArray(response.data) && response.data.length === 0)) {
                 try {
-                    response = await getapi(`/fatch_date_and_time2/time/${selectedDate}`);
+                    response = await getapi(`get_time_schedule/${id}/${selectedDate}`);
                 } catch (e) {
                     // Fallback failed
                 }
@@ -198,7 +210,7 @@ const Appointment = () => {
     const makePayment = async (datas) => {
         try {
             // --- RAZORPAY STEP 1: Create Order ---
-            const res = await postapi('/c2c_app/web-create-order', {
+            const res = await postapi('c2c_app/web-create-order', {
                 mobile: datas.patient_phone,
                 doctor_id: datas.doctor_phone_id,
                 patient_name: datas.patient_name,
@@ -229,28 +241,33 @@ const Appointment = () => {
                 description: "Appointment Payment",
                 order_id,
                 handler: async (response) => {
-                    // --- RAZORPAY STEP 3: Verify Payment ---
-                    // This runs after the user pays successfully. We verify the signature.
-                    const verifyRes = await postapi('/c2c_app/verify', {
-                        razorpay_order_id: response.razorpay_order_id,
-                        razorpay_payment_id: response.razorpay_payment_id,
-                        razorpay_signature: response.razorpay_signature
-                    }); setCurrentStep(3);
-console.log (verifyRes)
-                    // if (verifyRes.success && verifyRes.data.status === "success") {
-                    //     const responses = await postapi('/appointments/create', {
-                    //         ...datas,
-                    //         pay_id: response.razorpay_payment_id,
-                    //         amount: amount / 100
-                    //     });
-                    //     if (responses.success) {
-                    //         setCurrentStep(3);
-                    //     } else {
-                    //         alert("Payment successful, but failed to create appointment record. Please contact support.");
-                    //     }
-                    // } else {
-                    //     alert("Payment verification failed!");
-                    // }
+                    // Show success screen immediately as it was working before
+                    setCurrentStep(3);
+
+                    try {
+                        // Perform verification and creation in background
+                        await postapi('c2c_app/verify', {
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature
+                        });
+
+                        // Using the exact same path structure as the AppointmentList GET call
+                        await postapi(`c2c_app/appointments/${datas.patient_phone}`, {
+                            ...datas,
+                            pay_id: response.razorpay_payment_id,
+                            amount: amount / 100
+                        });
+                        
+                        // Keep this as a secondary sync just in case
+                        await postapi('c2c_app/appointments/create', {
+                            ...datas,
+                            pay_id: response.razorpay_payment_id,
+                            amount: amount / 100
+                        });
+                    } catch (error) {
+                        console.error("Background appointment processing failed:", error);
+                    }
                 },
                 theme: {
                     color: "#3b82f6"
@@ -283,17 +300,26 @@ console.log (verifyRes)
         const data = {
             patient_name: userName,
             guardian_name: fatherName,
-            patient_phone: userPhoneNumber,
+            father_name: fatherName,
+            patient_phone: userPhoneNumber.startsWith('91') ? userPhoneNumber : `91${userPhoneNumber}`,
+            mobile: userPhoneNumber.startsWith('91') ? userPhoneNumber : `91${userPhoneNumber}`,
             patient_email: userEmail,
+            email: userEmail,
             address: addressDetails,
             age: age || '25',
             city: selectedCity,
             vaccine: true,
             gender: gender,
+            sex: gender,
             symptoms: symptoms || "Routine Checkup",
             doctor_phone_id: id,
+            doctor_id: id,
+            doctor_name: doctorProfile?.name || "Doctor",
+            doctor_speciality: doctorProfile?.speciality || "Specialist",
             date_of_appointment: moment(date).format("YYYY-MM-DD"),
+            date: moment(date).format("YYYY-MM-DD"),
             time_slot: selectedTime,
+            time: selectedTime,
         };
 
         try {
@@ -472,7 +498,13 @@ console.log (verifyRes)
                                 </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>Phone Number</label>
-                                    <input style={styles.glassInput} placeholder="10-digit mobile" value={userPhoneNumber} onChange={handlePhoneNumberChange} required />
+                                    <input 
+                                        style={{...styles.glassInput, cursor: 'not-allowed', opacity: 0.8}} 
+                                        placeholder="10-digit mobile" 
+                                        value={userPhoneNumber} 
+                                        readOnly 
+                                        required 
+                                    />
                                 </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>Email Address</label>

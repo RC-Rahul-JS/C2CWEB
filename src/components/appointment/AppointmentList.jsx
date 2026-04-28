@@ -16,8 +16,26 @@ const AppointmentList = () => {
         window.addEventListener('resize', handleResize);
         const fetchAppointments = async () => {
             try {
-                const response = await getapi('c2c_app/appointments/917089449249');
-                if (response.success) setAppointments(response.data);
+                // 1. Try to get the user's profile to fetch their specific appointments
+                let phone = "";
+                try {
+                    const profileRes = await getapi('/profile');
+                    if (profileRes.success && profileRes.data.phone) {
+                        phone = profileRes.data.phone.startsWith('91') ? profileRes.data.phone : `91${profileRes.data.phone}`;
+                    }
+                } catch (e) {
+                    console.warn("Could not fetch profile for phone-based appointment filtering", e);
+                }
+
+                // 2. Fetch appointments (with phone if available, otherwise general)
+                const endpoint = phone ? `c2c_app/appointments/${phone}` : 'c2c_app/appointments';
+                const response = await getapi(endpoint);
+                
+                if (response.success) {
+                    // Extract data robustly (handle {data: [...]} or just [...])
+                    const data = response.data.data || (Array.isArray(response.data) ? response.data : []);
+                    setAppointments(Array.isArray(data) ? data : []);
+                }
             } catch (error) {
                 console.error('Error fetching appointments:', error);
             }
@@ -35,8 +53,9 @@ const AppointmentList = () => {
     };
 
     const filteredAppointments = appointments.filter((appt) => {
-        const statusMatch = filterStatus === "All" || (appt.status || "UPCOMING") === filterStatus;
-        const searchMatch = `${appt.patient_name} ${appt.doctor_name} ${appt.doctor_speciality}`
+        const apptStatus = (appt.status || "Upcoming").toUpperCase();
+        const statusMatch = filterStatus === "All" || apptStatus === filterStatus;
+        const searchMatch = `${appt.patientName || ""} ${appt.doctorName || ""} ${appt.specialty || ""}`
             .toLowerCase()
             .includes(searchQuery.toLowerCase());
         return statusMatch && searchMatch;
@@ -44,9 +63,9 @@ const AppointmentList = () => {
 
     const stats = {
         total: appointments.length,
-        upcoming: appointments.filter(a => (a.status || "UPCOMING") === "UPCOMING").length,
-        completed: appointments.filter(a => a.status === "COMPLETED").length,
-        cancelled: appointments.filter(a => a.status === "CANCELLED").length,
+        upcoming: appointments.filter(a => (a.status || "Upcoming").toUpperCase() === "UPCOMING").length,
+        completed: appointments.filter(a => (a.status || "").toUpperCase() === "COMPLETED").length,
+        cancelled: appointments.filter(a => (a.status || "").toUpperCase() === "CANCELLED").length,
     };
 
     return (
@@ -89,6 +108,7 @@ const AppointmentList = () => {
                                     <th style={styles.th}>SPECIALITY</th>
                                     <th style={styles.th}>DATE</th>
                                     <th style={styles.th}>TIME</th>
+                                    <th style={styles.th}>FEE</th>
                                     <th style={styles.th}>STATUS</th>
                                 </tr>
                             </thead>
@@ -103,14 +123,20 @@ const AppointmentList = () => {
                                             onClick={() => navigate(`/appointment_details/${apptId}`)}
                                         >
                                             <td style={styles.td}>{index + 1}</td>
-                                            <td style={{...styles.td, fontWeight: '600'}}>{appt.patient_name}</td>
-                                            <td style={styles.td}>{appt.doctor_name}</td>
-                                            <td style={styles.td}>{appt.doctor_speciality}</td>
-                                            <td style={styles.td}>{moment(appt.created_at).format("DD MMM YYYY")}</td>
-                                            <td style={styles.td}>{appt.time_slot}</td>
+                                            <td style={{...styles.td, fontWeight: '600'}}>
+                                                <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                                                    {appt.doctorPic && <img src={appt.doctorPic} alt="" style={{width: '30px', height: '30px', borderRadius: '50%'}} />}
+                                                    {appt.patientName}
+                                                </div>
+                                            </td>
+                                            <td style={styles.td}>{appt.doctorName}</td>
+                                            <td style={styles.td}>{appt.specialty}</td>
+                                            <td style={styles.td}>{moment(appt.date).format("DD MMM YYYY")}</td>
+                                            <td style={styles.td}>{appt.time}</td>
+                                            <td style={{...styles.td, color: '#4ade80', fontWeight: '700'}}>₹{appt.amount}</td>
                                             <td style={styles.td}>
-                                                <span style={styles.statusBadge(statusColors[appt.status || "UPCOMING"])}>
-                                                    {appt.status || "UPCOMING"}
+                                                <span style={styles.statusBadge(statusColors[(appt.status || "Upcoming").toUpperCase()])}>
+                                                    {appt.status || "Upcoming"}
                                                 </span>
                                             </td>
                                         </tr>
@@ -131,27 +157,36 @@ const AppointmentList = () => {
                                     >
                                         <div style={styles.mobileCardHeader}>
                                             <span style={styles.mobileIndex}>#{index + 1}</span>
-                                            <span style={styles.statusBadge(statusColors[appt.status || "UPCOMING"])}>
-                                                {appt.status || "UPCOMING"}
+                                            <span style={styles.statusBadge(statusColors[(appt.status || "Upcoming").toUpperCase()])}>
+                                                {appt.status || "Upcoming"}
                                             </span>
                                         </div>
                                         <div style={styles.mobileDataRow}>
                                             <span style={styles.mobileLabel}>Patient:</span>
-                                            <span style={styles.mobileValue}>{appt.patient_name}</span>
+                                            <span style={styles.mobileValue}>
+                                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end'}}>
+                                                    {appt.patientName}
+                                                    {appt.doctorPic && <img src={appt.doctorPic} alt="" style={{width: '20px', height: '20px', borderRadius: '50%'}} />}
+                                                </div>
+                                            </span>
                                         </div>
                                         <div style={styles.mobileDataRow}>
                                             <span style={styles.mobileLabel}>Doctor:</span>
-                                            <span style={styles.mobileValue}>{appt.doctor_name}</span>
+                                            <span style={styles.mobileValue}>{appt.doctorName}</span>
                                         </div>
                                         <div style={styles.mobileDataRow}>
                                             <span style={styles.mobileLabel}>Speciality:</span>
-                                            <span style={styles.mobileValue}>{appt.doctor_speciality}</span>
+                                            <span style={styles.mobileValue}>{appt.specialty}</span>
                                         </div>
                                         <div style={styles.mobileDataRow}>
                                             <span style={styles.mobileLabel}>Date & Time:</span>
                                             <span style={styles.mobileValue}>
-                                                {moment(appt.created_at).format("DD MMM")} • {appt.time_slot}
+                                                {moment(appt.date).format("DD MMM")} • {appt.time}
                                             </span>
+                                        </div>
+                                        <div style={styles.mobileDataRow}>
+                                            <span style={styles.mobileLabel}>Fee:</span>
+                                            <span style={{...styles.mobileValue, color: '#4ade80', fontWeight: '700'}}>₹{appt.amount}</span>
                                         </div>
                                     </div>
                                 );
