@@ -28,6 +28,12 @@ const Footer = () => {
         { name: 'Terms & Conditions', path: '/terms' },
     ];
 
+    const onboardingItems = [
+        { name: 'Doctor Onboarding', path: '/doctor-onboarding' },
+        { name: 'Hospital Onboarding', path: '/hospital-onboarding' },
+        { name: 'Medical Onboarding', path: '/medical-onboarding' },
+    ];
+
     return (
         <div
             style={{
@@ -104,6 +110,31 @@ const Footer = () => {
                             <li key={item.name} style={{ marginBottom: '10px' }}>
                                 <span
                                     onClick={() => navigate(item.path)}
+                                    style={{
+                                        color: 'white',
+                                        transition: '0.3s',
+                                        fontSize: '15px',
+                                        cursor: 'pointer',
+                                        display: 'inline-block'
+                                    }}
+                                    onMouseOver={(e) => (e.target.style.color = secondaryColor)}
+                                    onMouseOut={(e) => (e.target.style.color = 'white')}
+                                >
+                                    {item.name}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                {/* Onboarding Column */}
+                <div style={{ flex: 1, minWidth: isMobile ? '100%' : '150px', textAlign: isMobile ? 'center' : 'left' }}>
+                    <h4 style={{ fontSize: '18px', marginBottom: '15px', color: secondaryColor }}>Onboarding</h4>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                        {onboardingItems.map((item) => (
+                            <li key={item.name} style={{ marginBottom: '10px' }}>
+                                <span
+                                    onClick={() => window.open(item.path, '_blank')}
                                     style={{
                                         color: 'white',
                                         transition: '0.3s',

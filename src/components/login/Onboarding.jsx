@@ -25,6 +25,7 @@ const fetchDegrees = async () => {
     const res = await fetch('');
     const data = await res.json();
     setDegreeList(data);
+    
   } catch (err) {
     console.error('Failed to fetch degrees', err);
   }

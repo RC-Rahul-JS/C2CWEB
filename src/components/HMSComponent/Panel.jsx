@@ -21,7 +21,7 @@ const GradientInput = ({ label, icon: Icon, name, value, onChange, ...props }) =
         onChange={onChange}
         {...props}
         className="w-full text-xs pl-9 pr-3 py-2 bg-white/50 border border-white/80 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] font-medium text-slate-800"
-      />
+      />git push origin main
     </div>
   </div>
 );

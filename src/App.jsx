@@ -45,6 +45,9 @@ import Tstmnyl from './components/home/Tstmnyl.jsx'
 import Testing from './components/HMSComponent/Testing.jsx'
 import PanelConfiguration from './components/HMSComponent/Panel.jsx'
 import AppointmentDetails from './components/appointment/AppointmentDetails'
+import DoctorForm from './components/Onbording/dr_from'
+import HospitalForm from './components/Onbording/HospitalForm'
+import MedicalForm from './components/Onbording/MedicalForm'
 
 
 const ProtectedRoute = () => {
@@ -158,6 +161,9 @@ const [error, setError] = useState(null);
                 <Route path="/coming" element={<ComingSoon/>} />
                 <Route path="/test" element={<Testing/>} />
                 <Route path="/panel" element={<PanelConfiguration/>} />
+                <Route path="/doctor-onboarding" element={<DoctorForm />} />
+                <Route path="/hospital-onboarding" element={<HospitalForm />} />
+                <Route path="/medical-onboarding" element={<MedicalForm />} />
                 
 
                
