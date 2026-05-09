@@ -6,7 +6,7 @@ const apiClient = axios.create({
   // baseURL: 'http://127.0.0.1:5000',
   // baseURL: 'https://0f8d020f325d.ngrok-free.app', 
   // baseURL: 'https://api.care2connect.in'
-  baseURL: 'https://25c8-2405-201-3001-983c-8a9-c4bd-d89c-5de9.ngrok-free.app'
+  baseURL: 'https://hyphen-chemo-exponent.ngrok-free.dev'
 });
  // or sessionStorage.getItem('token')
 
@@ -27,9 +27,9 @@ showLoader();
     });
     return { success: true, data: response.data };
   } catch (error) {
-    console.log(error)
-    const message = error.response?.data?.error || error.message || 'An error occurred';
-    throw message
+    console.error("API error response:", error.response?.data);
+    const message = error.response?.data?.error || error.response?.data?.message || error.message || 'An error occurred';
+    throw message;
    }finally {
     hideLoader();
   }

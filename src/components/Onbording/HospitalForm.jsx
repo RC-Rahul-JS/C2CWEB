@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import jsonfile from '../../functions/1.json';
+import SuccessPage from './SuccessPage';
 
 const HospitalForm = ({ onSubmitSuccess }) => {
   const navigate = useNavigate();
   const onBack = () => navigate('/');
+  const [isSubmitted, setIsSubmitted] = useState(false);
   
   // --- STATE: STEP TRACKING ---
   const [currentStep, setCurrentStep] = useState(1);
@@ -225,10 +227,10 @@ const HospitalForm = ({ onSubmitSuccess }) => {
         ...documentsUrls
       };
 
-      console.log("📤 [Hospital Onboarding] POSTing flat payload to /api/c2c_app/hospital/request:", apiPayload);
+      console.log("📤 [Hospital Onboarding] POSTing flat payload to c2c_app/hospital/request:", apiPayload);
 
       let response = null;
-      let endpoint = "/api/c2c_app/hospital/request";
+      let endpoint = "https://hyphen-chemo-exponent.ngrok-free.dev/c2c_app/hospital/request";
 
       try {
         response = await fetch(endpoint, {
@@ -246,7 +248,7 @@ const HospitalForm = ({ onSubmitSuccess }) => {
 
       // If primary 404s or fails, try plural fallback
       if (!response || response.status === 404) {
-        endpoint = "/api/c2c_app/hospital/requests";
+        endpoint = "https://hyphen-chemo-exponent.ngrok-free.dev/c2c_app/hospital/requests";
         console.log(`🔄 [Hospital Onboarding] Primary endpoint returned 404. Attempting fallback plural endpoint: ${endpoint}...`);
         try {
           response = await fetch(endpoint, {
@@ -277,7 +279,7 @@ const HospitalForm = ({ onSubmitSuccess }) => {
         onSubmitSuccess({ ...finalData, documents: uploadedFiles });
       }
 
-      alert("Hospital Profile Synchronized Successfully!");
+      setIsSubmitted(true);
 
       // Reset Form
       setCurrentStep(1);
@@ -322,6 +324,15 @@ const HospitalForm = ({ onSubmitSuccess }) => {
       default: return true;
     }
   };
+
+  if (isSubmitted) {
+    return (
+      <SuccessPage 
+        title="Hospital Onboarding Successful!" 
+        description="Your hospital onboarding registration details have been received. Our administrators are reviewing the clinical features and department setups, and we will contact you once approved." 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">

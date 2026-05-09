@@ -748,6 +748,12 @@ const SignUp = () => {
         setTimeout(() => setInfoMessage(''), 2000);
     };
 
+    const formatPhoneForBackend = (phone) => {
+        if (!phone) return '';
+        const cleaned = phone.replace(/\D/g, '');
+        return cleaned.startsWith('91') ? cleaned : `91${cleaned}`;
+    };
+
     const sendOTP = async () => {
         const phoneRegex = /^[6-9]\d{9}$/;
         const phoneToUse = mode === 'login' ? loginData.phone : signupData.phone;
@@ -757,9 +763,14 @@ const SignUp = () => {
             return;
         }
 
-        const endpoint = mode === 'login' ? '/send-otp' : '/register-otp';
+        const formattedPhone = formatPhoneForBackend(phoneToUse);
+        const endpoint = '/c2c_app/send-otp';
         try {
-            const result = await postapi(endpoint, { phone: phoneToUse });
+            const result = await postapi(endpoint, { 
+                phone: formattedPhone,
+                mobile: formattedPhone,
+                number: formattedPhone
+            });
             if (result.success) {
                 setInfoWithTimeout(`OTP sent to +91${phoneToUse}`);
                 setStep(2);
@@ -776,7 +787,13 @@ const SignUp = () => {
         const otp = loginData.otp;
         if (otp.length === 6 && /^\d{6}$/.test(otp)) {
             try {
-                const result = await postapi('/verify-otp', { phone: phone.toString(), otp: otp.toString() });
+                const formattedPhone = formatPhoneForBackend(phone);
+                const result = await postapi('/c2c_app/verify-otp', { 
+                    phone: formattedPhone.toString(), 
+                    mobile: formattedPhone.toString(),
+                    number: formattedPhone.toString(),
+                    otp: otp.toString() 
+                });
                 if (result.success) {
                     if (result.data.details_required) setInfoWithTimeout('User Not Exists! Please Register !');
                     else {
@@ -795,7 +812,13 @@ const SignUp = () => {
 
     const Login = async () => {
         try {
-            const res = await postapi('/user-login', loginData);
+            const formattedPhone = formatPhoneForBackend(loginData.phone);
+            const res = await postapi('/user-login', {
+                ...loginData,
+                phone: formattedPhone,
+                mobile: formattedPhone,
+                number: formattedPhone
+            });
             Cookies.set('token', res.data.token, { expires: 1 });
             setInfoWithTimeout("Login Successful! Redirecting..");
             setTimeout(() => {
@@ -812,11 +835,19 @@ const SignUp = () => {
             sendOTP();
         } else if (step === 2) {
             if (signupData.otp?.length === 6 && /^\d{6}$/.test(signupData.otp)) {
-                const result = await postapi('/verify-otp', { phone: signupData.phone, otp: signupData.otp });
+                const formattedPhone = formatPhoneForBackend(signupData.phone);
+                const result = await postapi('/c2c_app/verify-otp', { 
+                    phone: formattedPhone, 
+                    mobile: formattedPhone,
+                    number: formattedPhone,
+                    otp: signupData.otp 
+                });
                 if (result.success) {
                     const res = await postapi('/register', {
                         name: signupData.fullName,
-                        phone: signupData.phone,
+                        phone: formattedPhone,
+                        mobile: formattedPhone,
+                        number: formattedPhone,
                         password: signupData.password,
                         role: activeTab
                     });

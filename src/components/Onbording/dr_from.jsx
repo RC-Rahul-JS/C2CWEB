@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import jsonfile from '../../functions/1.json';
+import SuccessPage from './SuccessPage';
 
 const Form = ({ onSubmitSuccess }) => {
   const navigate = useNavigate();
   const onBack = () => navigate('/');
+  const [isSubmitted, setIsSubmitted] = useState(false);
   // --- STATE: STEP TRACKING ---
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -51,8 +53,8 @@ const Form = ({ onSubmitSuccess }) => {
   }, []);
 
   useEffect(() => {
-    console.log("🚀 [Doctor Onboarding] Fetching all hospital requests to build Approved Hospitals list from /api/c2c_app/hospital/requests...");
-    fetch('/api/c2c_app/hospital/requests', {
+    console.log("🚀 [Doctor Onboarding] Fetching all hospital requests to build Approved Hospitals list...");
+    fetch('https://hyphen-chemo-exponent.ngrok-free.dev/c2c_app/hospital/requests', {
       headers: {
         'ngrok-skip-browser-warning': 'true'
       }
@@ -213,9 +215,9 @@ const Form = ({ onSubmitSuccess }) => {
         ...documentsUrls
       };
 
-      console.log("📤 [Doctor Onboarding] POSTing flat payload to /api/c2c_app/doctor/request:", apiPayload);
+      console.log("📤 [Doctor Onboarding] POSTing flat payload to c2c_app/doctor/request:", apiPayload);
 
-      const response = await fetch("/api/c2c_app/doctor/request", {
+      const response = await fetch("https://hyphen-chemo-exponent.ngrok-free.dev/c2c_app/doctor/request", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -237,7 +239,7 @@ const Form = ({ onSubmitSuccess }) => {
         onSubmitSuccess({ ...finalData, documents: uploadedFiles });
       }
       
-      alert("Profile Synchronized Successfully!");
+      setIsSubmitted(true);
       
       // Reset Form
       setCurrentStep(1);
@@ -289,6 +291,15 @@ const Form = ({ onSubmitSuccess }) => {
       default: return true;
     }
   };
+
+  if (isSubmitted) {
+    return (
+      <SuccessPage 
+        title="Doctor Registration Successful!" 
+        description="Your onboarding request has been submitted successfully and is under review. Our administrative team will verify your credentials and send an approval update shortly." 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">
