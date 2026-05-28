@@ -2,21 +2,61 @@ import React, { useState, useEffect } from 'react';
 import profileBackground from '../../assets/dr.jpg';
 import profilePicture from '../../assets/dr.jpg';
 import { useNavigate, useParams } from 'react-router-dom';
-import dyjson from './Diagonistic.json';
 import LabTest from '../profile/LabTests';
+import useApi from '../../functions/api';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const DiagonisticProfile = () => {
   const navi = useNavigate();
-  const primaryColor = '#002570';
-  const [pathologies, setPathologies] = useState(dyjson);
-
   const { id } = useParams();
+  const { getapi } = useApi();
   const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const selected = pathologies.find(p => String(p.id) === id);
-    if (selected) setProfile(selected);
-  }, [id, pathologies]);
+    const fetchProfile = async () => {
+      try {
+        const response = await getapi('/c2c_app/labs/requests');
+        let data = response.data;
+        let list = [];
+        if (Array.isArray(data)) list = data;
+        else if (data && Array.isArray(data.requests)) list = data.requests;
+        else if (data && Array.isArray(data.data)) list = data.data;
+        else if (data && Array.isArray(data.pathologys)) list = data.pathologys;
+        else if (data && typeof data === 'object') {
+           list = Object.values(data).filter(v => typeof v === 'object');
+        }
+        
+        const found = list.find(item => String(item._id) === id || String(item.id) === id || String(item.lab_id) === id);
+        
+        if (found) {
+          const info = found.basicInfo || found.medical || {};
+          const addr = found.address || {};
+          setProfile({
+            name: info.labName || info.medicalName || found.labName || 'N/A',
+            type: info.labType || found.labType || "Diagnostic Centre",
+            address: addr.addressLine1 || info.address || found.address || 'N/A',
+            city: addr.city || found.city || '',
+            image_url: found.documents?.labLogo ? `${API_BASE_URL}/image/${found.documents.labLogo}` : (found.documents?.labLogo?.startsWith('http') ? found.documents.labLogo : profilePicture),
+            services: found.services?.join(', ') || "Pathology & Diagnostic Services",
+            about: found.about || "This diagnostic centre offers trusted pathology and diagnostic services with modern equipment and professional staff.",
+            rating: found.rating || "4.5"
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching profile:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, [id]);
+
+  if (loading) {
+    return <h2 style={{ textAlign: 'center', marginTop: 100 }}>Loading Profile...</h2>;
+  }
 
   if (!profile) {
     return <h2 style={{ textAlign: 'center', marginTop: 100 }}>Pathology Center Not Found</h2>;
@@ -98,21 +138,21 @@ const DiagonisticProfile = () => {
           <div style={{ flex: 1, minWidth: '250px' }}>
             <h2 style={{ margin: '0', fontSize: '28px', color: '#0d3c61' }}>{profile.name}</h2>
             <p style={{ margin: '8px 0', fontSize: '16px', color: '#444' }}>
-              {profile.type || "Diagnostic Centre"}
+              {profile.type}
             </p>
             <p style={{ margin: '8px 0', fontSize: '14px', color: '#555' }}>
-              {profile.services || "Pathology & Diagnostic Services"}
+              {profile.services}
             </p>
 
             <div style={{ marginTop: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
                 <span style={{ marginRight: '8px' }}>📍</span>
-                <span style={{ color: '#555', fontSize: '14px' }}>{profile.address}</span>
+                <span style={{ color: '#555', fontSize: '14px' }}>{profile.address} {profile.city}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
                 <span style={{ marginRight: '8px' }}>⭐</span>
                 <span style={{ color: '#555', fontSize: '14px' }}>
-                  Rating: {profile.rating || "N/A"}
+                  Rating: {profile.rating}
                 </span>
               </div>
             </div>
@@ -127,7 +167,7 @@ const DiagonisticProfile = () => {
               lineHeight: '1.6',
               marginBottom: '20px'
             }}>
-              {profile.about || "This diagnostic centre offers trusted pathology and diagnostic services with modern equipment and professional staff."}
+              {profile.about}
             </p>
 
             <button

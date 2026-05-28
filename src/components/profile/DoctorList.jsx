@@ -146,7 +146,7 @@ const DoctorList = () => {
                 }}
               >
                 <img
-                  src={item.imageUrl || item.documents?.photo || 'https://via.placeholder.com/280'}
+                  src={item.profile_pic || item.photo || item.imageUrl || 'https://via.placeholder.com/280'}
                   alt="Profile"
                   style={{
                     width: '100%',

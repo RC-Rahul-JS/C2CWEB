@@ -84,7 +84,7 @@ const DoctorProfile = () => {
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
           }}>
             <img
-              src={profile?.imageUrl}
+              src={profile?.profile_pic || profile?.photo || profile?.imageUrl}
               alt="Doctor"
               style={{
                 width: '100%',

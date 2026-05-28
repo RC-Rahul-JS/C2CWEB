@@ -41,6 +41,7 @@ import Diagonistic from './components/profile/Diagonistic.jsx'
 import TermsAndConditions from './components/contact/TermsAndConditions.jsx'
 import { label } from 'framer-motion/client'
 import DiagonisticProfile from './components/profile/DiagonisticProfile.jsx'
+import DiagonisticList from './components/profile/DiagonisticList.jsx'
 import Tstmnyl from './components/home/Tstmnyl.jsx'
 // import Test from './components/login/test';
 import Testing from './components/HMSComponent/Testing.jsx'
@@ -194,6 +195,7 @@ const [error, setError] = useState(null);
                 <Route path="/appointment_details/:id" element={<><Navbar/><AppointmentDetails/><Footer/></>} />
                 <Route path="/doctor_list" element={<><Navbar/><DoctorList/><Footer/></>} />
                 <Route path="/hospital_list" element={<><Navbar/><HospitalList/><Footer/></>} />
+                <Route path="/diagonistic_list" element={<><Navbar/><DiagonisticList/><Footer/></>} />
                 <Route path="/map" element={<><Navbar/><MapPage/><Footer/></>} />
                 <Route path="/profileedit/:id" element={<><Navbar/><DisplayProfileEdit/><Footer/></>} />
 

@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import Slider from 'react-slick';
-import 'slick-carousel/slick/slick.css';
-import 'slick-carousel/slick/slick-theme.css';
 import { useNavigate } from 'react-router-dom';
 import { FlaskConical, CheckCircle2, ArrowRight } from 'lucide-react';
 import useApi from '../../functions/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-const Diagonistic = () => {
+const DiagonisticList = () => {
   const navigate = useNavigate();
   const { getapi } = useApi();
   const [labs, setLabs] = useState([]);
@@ -54,26 +51,32 @@ const Diagonistic = () => {
     fetchLabs();
   }, []);
 
-  const settings = {
-    dots: false,
-    infinite: false,
-    speed: 500,
-    slidesToShow: 4.5,
-    slidesToScroll: 1,
-    responsive: [
-      { breakpoint: 1024, settings: { slidesToShow: 3.5 } },
-      { breakpoint: 768, settings: { slidesToShow: 2.2 } },
-      { breakpoint: 480, settings: { slidesToShow: 1.2 } }
-    ]
-  };
-
   return (
-    <div style={{ padding: '60px 40px', background: 'linear-gradient(to bottom, #dbeafe, #93c5fd)'}}>
-      {/* Cards Slider */}
-      <Slider {...settings} className="lab-slider">
-        {labs.map((item, index) => (
-          <div key={index} style={{ padding: '10px' }}>
+    <div style={{ padding: '60px 40px', background: 'linear-gradient(to bottom, #dbeafe, #93c5fd)', minHeight: '100vh', marginTop: '60px'}}>
+      
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+        <h1 style={{ fontSize: '36px', fontWeight: '900', color: '#0f172a' }}>
+          Pathology Services
+        </h1>
+        <p style={{ fontSize: '14px', color: '#475569', marginTop: '10px' }}>
+          Book verified home sample collections easily with our trusted lab partners.
+        </p>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '50px', color: '#4f46e5', fontWeight: 'bold' }}>Loading Lab Partners...</div>
+      ) : (
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', 
+          gap: '20px',
+          maxWidth: '1200px',
+          margin: '0 auto'
+        }}>
+          {labs.map((item, index) => (
             <div
+              key={index}
               style={{
                 backgroundColor: '#fff',
                 borderRadius: '24px',
@@ -141,59 +144,11 @@ const Diagonistic = () => {
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-
-        {/* Final CTA Card */}
-        <div style={{ padding: '10px' }}>
-          <div style={{
-            backgroundColor: '#f8fafc',
-            borderRadius: '24px',
-            padding: '30px',
-            height: '320px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center'
-          }}>
-             <div style={{
-               background: '#6366f1', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: '6px',
-               padding: '6px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase',
-               alignSelf: 'flex-start', marginBottom: '20px'
-             }}>
-                <FlaskConical size={12} /> PARTNER LABS
-             </div>
-             
-             <h2 style={{ fontSize: '28px', fontWeight: '900', color: '#0f172a', lineHeight: '1.1', marginBottom: '15px' }}>
-               Pathology <br/> Services.
-             </h2>
-             
-             <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '30px', lineHeight: '1.5' }}>
-               Rahul, book verified home sample collections easily.
-             </p>
-             
-             <button 
-               onClick={() => navigate('/diagonistic_list')}
-               style={{
-                 background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '12px',
-                 padding: '12px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer',
-                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                 boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
-               }}
-             >
-               View Labs <ArrowRight size={16} />
-             </button>
-          </div>
+          ))}
         </div>
-      </Slider>
-
-      {/* Helper CSS */}
-      <style>{`
-        .lab-slider .slick-track { display: flex !important; }
-        .lab-slider .slick-slide { height: auto; }
-      `}</style>
+      )}
     </div>
   );
 };
 
-export default Diagonistic;
+export default DiagonisticList;

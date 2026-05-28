@@ -14,8 +14,6 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 import useApi from '../../functions/api';
 import Cookies from "js-cookie";
 import { useNavigate } from 'react-router-dom';
-import dyjson from '../profile/Diagonistic.json';
-
 const UnifiedMedicalPortal = () => {
   const [isDocPaused, setIsDocPaused] = useState(false);
   const [isLabPaused, setIsLabPaused] = useState(false);
@@ -33,6 +31,7 @@ const UnifiedMedicalPortal = () => {
   };
 
   const [doctors, setdoctors] = useState([])
+  const [labs, setLabs] = useState([])
   
   const fetch_doc = async () => {
     try {
@@ -41,7 +40,7 @@ const UnifiedMedicalPortal = () => {
       const rawDoctors = (result.data).map(element => ({
         id: element._id,
         name: element.name,
-        image: element.imageUrl,
+        image: element.profile_pic || element.photo || element.imageUrl,
         rating: 4.9,
         role: element.speciality,
         dept: element.specialization
@@ -54,25 +53,57 @@ const UnifiedMedicalPortal = () => {
     }
   }
 
+  const fetch_labs = async () => {
+    try {
+      const result = await getapi('/c2c_app/labs/requests');
+      let data = result.data;
+      let list = [];
+      if (Array.isArray(data)) list = data;
+      else if (data && Array.isArray(data.requests)) list = data.requests;
+      else if (data && Array.isArray(data.data)) list = data.data;
+      else if (data && Array.isArray(data.pathologys)) list = data.pathologys;
+      else if (data && typeof data === 'object') {
+         list = Object.values(data).filter(v => typeof v === 'object');
+      }
+      
+      const approvedLabs = list.filter(item => (item.status || '').toLowerCase() === 'approved').map(element => {
+          const info = element.basicInfo || element.medical || {};
+          const addr = element.address || {};
+          return {
+            id: element._id || element.id || element.customId,
+            name: info.labName || info.medicalName || element.labName || 'N/A',
+            logo: element.documents?.labLogo?.startsWith('http') ? element.documents.labLogo : (element.documents?.labLogo ? `${API_BASE_URL}/image/${element.documents.labLogo}` : 'https://via.placeholder.com/150'),
+            rating: element.rating || 4.5,
+            color: "#00a99d",
+            location: addr.addressLine1 || info.address || element.address || 'N/A'
+          }
+      });
+      setLabs(approvedLabs);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem("userData"));
     if (savedUser) {
       setdoctors(savedUser);
     }
     fetch_doc();
+    fetch_labs();
   }, []);
+  
+  const getMarqueeItems = (items) => {
+    if (!items || items.length === 0) return [];
+    let result = [...items, ...items];
+    while (result.length < 15) {
+      result = [...result, ...items];
+    }
+    return result;
+  };
 
-  const labs = dyjson.map(element => ({
-    id: element.id,
-    name: element.name,
-    logo: element.image_url,
-    rating: element.rating,
-    color: "#00a99d",
-    location: element.address
-  }))
-
-  const marqueeDoctors = [...doctors, ...doctors];
-  const marqueeLabs = [...labs, ...labs];
+  const marqueeDoctors = getMarqueeItems(doctors);
+  const marqueeLabs = getMarqueeItems(labs);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-blue-500/40 via-sky-300/50 flex flex-col items-center justify-center p-4 lg:p-10 overflow-hidden font-sans gap-8 lg:gap-12 select-none cursor-default">
@@ -87,14 +118,14 @@ const UnifiedMedicalPortal = () => {
           100% { transform: translateX(0); }
         }
         .animate-marquee {
-          animation: marquee 30s linear infinite;
+          animation: marquee 15s linear infinite;
         }
         .animate-marquee-reverse {
-          animation: marquee-reverse 35s linear infinite;
+          animation: marquee-reverse 15s linear infinite;
         }
         @media (min-width: 1024px) {
-          .animate-marquee { animation-duration: 40s; }
-          .animate-marquee-reverse { animation-duration: 45s; }
+          .animate-marquee { animation-duration: 20s; }
+          .animate-marquee-reverse { animation-duration: 20s; }
         }
         .pause-animation {
           animation-play-state: paused !important;
@@ -141,7 +172,7 @@ const UnifiedMedicalPortal = () => {
             </div>
             <h2 className="text-2xl lg:text-3xl font-black text-slate-900 leading-tight mb-3">Pathology <br className="hidden lg:block"/>Services.</h2>
             <p className="text-slate-700 text-[13px] lg:text-[14px] leading-relaxed mb-6">Rahul, book verified home sample collections easily.</p>
-            <button className="w-full py-3 lg:py-4 rounded-xl bg-indigo-600 text-white text-[12px] lg:text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-indigo-800 transition-all">
+            <button onClick={() => navi('/diagonistic_list')} className="w-full py-3 lg:py-4 rounded-xl bg-indigo-600 text-white text-[12px] lg:text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-indigo-800 transition-all">
               <ArrowLeft size={16} /> View Labs 
             </button>
           </div>
@@ -199,7 +230,9 @@ const DoctorCard = ({ doc, index, variants }) => {
   );
 };
 
-const LabCard = ({ lab, index, variants }) => (
+const LabCard = ({ lab, index, variants }) => {
+  const navi = useNavigate();
+  return (
   <motion.div 
     custom={index % 5} initial="hidden" animate="visible" variants={variants}
     className="group w-[170px] h-[225px] lg:w-[240px] lg:h-[320px] bg-white/95 rounded-[20px] lg:rounded-[28px] overflow-hidden border border-white shadow-lg flex-shrink-0"
@@ -226,6 +259,7 @@ const LabCard = ({ lab, index, variants }) => (
         </div>
       </div>
       <div 
+        onClick={() => navi('/diagonistic_profile/' + lab.id)}
         className="w-full py-1.5 lg:py-2 rounded-lg lg:rounded-xl text-[8px] lg:text-[10px] font-bold flex items-center justify-center gap-1 lg:gap-2 transition-all cursor-pointer"
         style={{ backgroundColor: `${lab.color}15`, color: lab.color }}
       >
@@ -233,6 +267,7 @@ const LabCard = ({ lab, index, variants }) => (
       </div>
     </div>
   </motion.div>
-);
+  );
+};
 
 export default UnifiedMedicalPortal;
