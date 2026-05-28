@@ -3,10 +3,8 @@ import Cookies from 'js-cookie'; // Ensure you have js-cookie installed
 import { useLoader } from '../context/LoaderContext';
 
 const apiClient = axios.create({
-  // baseURL: 'http://127.0.0.1:5000',
-  // baseURL: 'https://0f8d020f325d.ngrok-free.app', 
-  // baseURL: 'https://api.care2connect.in'
-  baseURL: 'https://hyphen-chemo-exponent.ngrok-free.dev'
+  baseURL: 'http://192.168.29.145:5000'
+  // baseURL: ''
 });
  // or sessionStorage.getItem('token')
 
@@ -46,6 +44,7 @@ showLoader();
         Authorization: `Bearer ${token || ''}`,
       }
     });
+    
     return { success: true, data: response.data };
   } catch (error) {
     const message = error.response?.data?.error || error.message || 'Failed to fetch data';

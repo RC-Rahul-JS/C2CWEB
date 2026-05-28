@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Activity, ShieldCheck, Save, XCircle, Search, 
   Layers, DollarSign, Percent, Settings2, 
-  ToggleLeft, CheckCircle2, RefreshCw, Palette
+  ToggleLeft, CheckCircle2, RefreshCw, Palette, ArrowLeft
 } from 'lucide-react';
 
 // --- Custom Reusable Components ---
@@ -21,7 +22,7 @@ const GradientInput = ({ label, icon: Icon, name, value, onChange, ...props }) =
         onChange={onChange}
         {...props}
         className="w-full text-xs pl-9 pr-3 py-2 bg-white/50 border border-white/80 rounded-lg focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] font-medium text-slate-800"
-      />git push origin main
+      />
     </div>
   </div>
 );
@@ -46,6 +47,7 @@ const GradientSelect = ({ label, icon: Icon, name, value, onChange, options = []
 );
 
 const PanelMasterWorking = () => {
+  const navigate = useNavigate();
   // --- State Management ---
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -153,6 +155,9 @@ const PanelMasterWorking = () => {
                 <ShieldCheck size={10} className="text-emerald-500" /> System Live: Node-774
               </span>
             </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => navigate(-1)} className="p-1.5 text-slate-500 bg-white/20 hover:bg-white/40 border border-white/40 rounded-lg transition-all" title="Go Back"><ArrowLeft size={14} /></button>
           </div>
         </div>
 

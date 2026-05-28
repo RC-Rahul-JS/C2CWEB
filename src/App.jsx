@@ -26,7 +26,8 @@ import ScrollToTop from './functions/ScrollToTop'
 import DoctorList from './components/profile/DoctorList'
 import HospitalList from './components/profile/HospitalList'
 import MapPage from './components/about.jsx/MapPage'
-import { Navigate, Outlet,useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import Cookies from 'js-cookie';
 import DisplayProfileEdit from './components/profile/DisplayProfileEdit'
 import Consult from './components/contact/Consult'
@@ -48,16 +49,60 @@ import AppointmentDetails from './components/appointment/AppointmentDetails'
 import DoctorForm from './components/Onbording/dr_from'
 import HospitalForm from './components/Onbording/HospitalForm'
 import MedicalForm from './components/Onbording/MedicalForm'
+import { useAuth } from './context/AuthContext'
+
+
+const GlobalFloatingBackButton = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  if (location.pathname === '/') return null;
+
+  const pathsWithNavbar = [
+    '/contact', '/signup', '/onboarding', '/services', '/about', '/list', '/doctor_list', '/hospital_list', '/map'
+  ];
+  const dynamicNavbarPatterns = [
+    /^\/doctor_profile\//,
+    /^\/diagonistic_profile\//,
+    /^\/hospital_profile\//,
+    /^\/appointment_details\//,
+    /^\/profileedit\//,
+    /^\/appointment\//
+  ];
+
+  const hasNavbar = pathsWithNavbar.includes(location.pathname) || dynamicNavbarPatterns.some(pat => pat.test(location.pathname));
+  if (hasNavbar) return null;
+
+  const pathsWithCustomBackButton = [
+    '/doctor-onboarding', '/hospital-onboarding', '/medical-onboarding', '/test', '/panel'
+  ];
+  if (pathsWithCustomBackButton.includes(location.pathname)) return null;
+
+  const isComingSoon = location.pathname === '/coming';
+
+  const buttonStyle = isComingSoon
+    ? "fixed top-6 left-6 z-[9999] px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/35 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-1.5 cursor-pointer backdrop-blur-md"
+    : "fixed top-6 left-6 z-[9999] px-4 py-2 bg-white/80 hover:bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-slate-100 hover:shadow-lg flex items-center gap-1.5 cursor-pointer backdrop-blur-md";
+
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(-1)}
+      className={buttonStyle}
+    >
+      <ArrowLeft size={12} className="stroke-[3]" />
+      Back
+    </button>
+  );
+};
 
 
 const ProtectedRoute = () => {
-  // const token = Cookies.get('token'); // or sessionStorage.getItem('token')
-  // return token ? <Outlet /> : <Navigate to="/signup" replace />;
-  const token = Cookies.get('token');
+  const { isAuthenticated } = useAuth();
   const location = useLocation();
   console.log(location.pathname);
 
-  if (!token) {
+  if (!isAuthenticated) {
     // Save the intended route to session storage
     sessionStorage.setItem('redirectAfterLogin', location.pathname);
     return <Navigate to="/signup" replace />;
@@ -118,6 +163,7 @@ const [error, setError] = useState(null);
      <div>
     <Router>
       <ScrollToTop/>
+      <GlobalFloatingBackButton />
             <Routes>
                 <Route path="/" element={<>
                {/* <ComingSoon/> */}

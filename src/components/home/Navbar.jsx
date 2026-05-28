@@ -1,7 +1,8 @@
-import { User, LogIn, MapPin, ChevronDown, Calendar, Edit, LogOut, Search, Menu, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { User, LogIn, MapPin, ChevronDown, Calendar, Edit, LogOut, Search, Menu, X, ChevronLeft } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useApi from '../../functions/api';
 import Cookies from 'js-cookie';
+import { useAuth } from '../../context/AuthContext';
 
 import React, { useState, useEffect, useRef } from "react";
 import care2connect from '../../assets/login/pp.png';
@@ -19,7 +20,9 @@ function useDebounce(value, delay) {
 const Navbar = () => {
     const { postapi, getapi } = useApi();
     const navigate = useNavigate();
-    const token = Cookies.get('token');
+    const routeLocation = useLocation();
+    const { user, token: contextToken, login, logout, updateUser } = useAuth();
+    const token = contextToken || Cookies.get('token');
 
     // --- NAVIGATION PILL STATES ---
     const [activeTab, setActiveTab] = useState("Home");
@@ -38,77 +41,83 @@ const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
     const [showEditForm, setShowEditForm] = useState(false);
-    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const dropdownRef = useRef(null);
     const [formData, setFormData] = useState({
-        name: 'John Doe', dob: '1990-01-01', gender: 'Male',
-        address: '123 Main Street, City, Country', phone: '+91 98765 43210', role: 'patient'
+        name: '', dob: '', gender: '',
+        address: '', phone: '', role: 'patient'
     });
 
     // 1. PILL ANIMATION LOGIC
     useEffect(() => {
         const currentTab = tabsRef.current.find((ref) => ref && ref.innerText.toUpperCase() === activeTab.toUpperCase());
         if (currentTab) {
-            setPillStyle({ left: currentTab.offsetLeft, width: currentTab.offsetWidth, opacity: 1 });
+            setPillStyle({
+                left: currentTab.offsetLeft,
+                width: currentTab.offsetWidth,
+                opacity: 1,
+            });
         }
-    }, [activeTab, isMobileMenuOpen]);
+    }, [activeTab]);
 
-    // 2. AUTOMATIC INITIAL LOCATION
+    // 2. LOCATION LOGIC
     useEffect(() => {
         const savedLoc = localStorage.getItem("location");
         if (savedLoc) {
-            const loc = JSON.parse(savedLoc);
-            setLocation(loc.name.split(',')[0]);
-        } else if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                try {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
-                    const data = await res.json();
-                    const city = data.address.city || data.address.town || "Unknown";
-                    setLocation(city);
-                } catch (e) { setLocation("Bhopal, MP"); }
-            }, () => setLocation("Bhopal, MP"));
+            try {
+                const parsed = JSON.parse(savedLoc);
+                if (parsed.display) setLocation(parsed.display);
+            } catch (e) { console.error(e); }
         }
     }, []);
 
-    // 3. REAL-TIME LOCATION SEARCH
     useEffect(() => {
-        if (debouncedSearch.length > 2) {
+        if (!debouncedSearch) { setSuggestions([]); return; }
+        const fetchSuggestions = async () => {
             setIsLoadingLoc(true);
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${debouncedSearch}&limit=5`)
-                .then(res => res.json())
-                .then(data => {
-                    setSuggestions(data);
-                    setIsLoadingLoc(false);
-                })
-                .catch(() => setIsLoadingLoc(false));
-        } else {
-            setSuggestions([]);
-        }
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(debouncedSearch)}`);
+                const data = await res.json();
+                setSuggestions(data.slice(0, 5));
+            } catch (error) { console.error('Error fetching location suggestions:', error); }
+            finally { setIsLoadingLoc(false); }
+        };
+        fetchSuggestions();
     }, [debouncedSearch]);
 
-    const selectLocation = (loc) => {
-        const cityName = loc.display_name.split(',')[0];
-        setLocation(cityName);
-        localStorage.setItem("location", JSON.stringify({ lat: loc.lat, lng: loc.lon, name: loc.display_name }));
-        setSearchQuery("");
+    const handleSelectLocation = (place) => {
+        const locObj = { lat: place.lat, lng: place.lon, display: place.display_name.split(',')[0] };
+        localStorage.setItem("location", JSON.stringify(locObj));
+        setLocation(locObj.display);
         setIsSearching(false);
     };
 
     // 4. PROFILE LOGIC
     const getuser = async () => {
+        const storedUser = JSON.parse(localStorage.getItem('user_details') || localStorage.getItem('user') || '{}');
+        const userId = storedUser.user_id || storedUser._id || Cookies.get('user_id');
+        if (!userId) return;
         try {
-            const response = await getapi('/profile');
-            setFormData({
-                name: response.data.name || 'John Doe',
-                dob: response.data.dateOfBirth || '1990-01-01',
-                address: response.data.address || '123 Main Street, City, Country',
-                gender: response.data.gender || "Male",
-                phone: response.data.phone || '+91 98765 43210',
-                role: response.data.role || 'patient',
-            });
+           
+            const endpoint = `/c2c_app/user?user_id=${userId}`;
+            const response = await getapi(endpoint);
+            if (response.success && response.data) {
+                const profile = response.data.data || response.data;
+                login(profile, Cookies.get('token') || localStorage.getItem('token'));
+                setFormData({
+                    name: profile.name || '',
+                    dob: profile.dateOfBirth || '',
+                    address: profile.address || '',
+                    gender: profile.gender || "Male",
+                    phone: profile.phone || profile.mobile || profile.number || '',
+                    role: profile.role || 'patient',
+                });
+            }
         } catch (error) { console.error('Error fetching profile:', error); }
     };
+
+    useEffect(() => {
+        if (token) getuser();
+    }, [token]);
 
     const toggleDropdown = async () => {
         if (!isOpen) await getuser();
@@ -117,14 +126,14 @@ const Navbar = () => {
     };
 
     const handleLogout = () => {
-        Cookies.remove('token');
         setIsOpen(false);
-        window.location.reload();
+        logout();
     };
 
     const Updateuser = async (data) => {
         try {
             await postapi('/update_profile', { name: data.name, dateOfBirth: data.dob, address: data.address, gender: data.gender });
+            updateUser(data);
             setShowEditForm(false);
             setIsOpen(false);
         } catch (error) { console.error(error); }
@@ -156,6 +165,15 @@ const Navbar = () => {
                     
                     {/* LEFT: Logo */}
                     <div className="flex items-center">
+                        {routeLocation.pathname !== '/' && (
+                            <button 
+                                onClick={() => navigate(-1)} 
+                                className="mr-2.5 p-1.5 md:p-2 bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/25 rounded-full text-white transition-all duration-300 flex items-center justify-center cursor-pointer group shadow-md shrink-0 focus:outline-none"
+                                title="Go Back"
+                            >
+                                <ChevronLeft size={16} className="md:w-5 md:h-5 group-hover:-translate-x-0.5 transition-transform" />
+                            </button>
+                        )}
                         <img src={care2connect} alt="Logo" className="h-[48px] md:h-[58px] cursor-pointer shrink-0" onClick={() => navigate('/')} />
                     </div>
 
@@ -209,9 +227,9 @@ const Navbar = () => {
                                     {!showEditForm ? (
                                         <>
                                             <div className="pb-3 mb-3 border-b border-gray-100 text-[#002570]">
-                                                <p className="font-extrabold text-base md:text-xl mb-1 truncate">Hi, {formData.name}</p>
-                                                <p className="text-[10px] md:text-[12px] opacity-70 font-medium truncate">📞 {formData.phone}</p>
-                                                <p className="text-[10px] md:text-[12px] opacity-70 truncate font-medium">📍 {formData.address}</p>
+                                                <p className="font-extrabold text-base md:text-xl mb-1 truncate">Hi, {formData.name || 'User'}</p>
+                                                <p className="text-[10px] md:text-[12px] opacity-70 font-medium truncate">📞 {formData.phone || 'No phone'}</p>
+                                                <p className="text-[10px] md:text-[12px] opacity-70 truncate font-medium">📍 {formData.address || 'No address'}</p>
                                             </div>
                                             <ul className="list-none p-0 m-0 space-y-1">
                                                 <li onClick={() => { navigate('/list'); setIsOpen(false); }} className="flex items-center space-x-3 text-blue-600 p-2 rounded-xl hover:bg-blue-50 cursor-pointer transition-all">
@@ -220,7 +238,7 @@ const Navbar = () => {
                                                 <li onClick={() => setShowEditForm(true)} className="flex items-center space-x-3 text-blue-600 p-2 rounded-xl hover:bg-blue-50 cursor-pointer transition-all">
                                                     <Edit size={14} /> <span className="text-xs md:text-sm font-bold">Edit Account</span>
                                                 </li>
-                                                <li onClick={() => setShowLogoutConfirm(!showLogoutConfirm)} className="flex items-center space-x-3 text-red-600 p-2 rounded-xl hover:bg-red-50 cursor-pointer border-t mt-2 pt-2">
+                                                <li onClick={handleLogout} className="flex items-center space-x-3 text-red-600 p-2 rounded-xl hover:bg-red-50 cursor-pointer border-t mt-2 pt-2">
                                                     <LogOut size={14} /> <span className="text-xs md:text-sm font-bold">Logout</span>
                                                 </li>
                                             </ul>
@@ -229,8 +247,9 @@ const Navbar = () => {
                                         <div className="text-[#002570]">
                                             <h4 className="font-black text-[10px] mb-3 border-b pb-1 uppercase tracking-tighter">Settings</h4>
                                             <div className="space-y-2">
-                                                <input className="w-full p-2 bg-gray-50 border-none rounded-lg text-[10px] font-bold outline-none" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-                                                <textarea className="w-full p-2 bg-gray-50 border-none rounded-lg text-[10px] font-bold h-14 resize-none" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
+                                                <input className="w-full p-2 bg-gray-50 border-none rounded-lg text-[10px] font-bold outline-none" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Name" />
+                                                <input className="w-full p-2 bg-gray-50 border-none rounded-lg text-[10px] font-bold outline-none" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="Mobile Number" disabled />
+                                                <textarea className="w-full p-2 bg-gray-50 border-none rounded-lg text-[10px] font-bold h-14 resize-none" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Address" />
                                             </div>
                                             <div className="flex gap-2 mt-4">
                                                 <button onClick={() => setShowEditForm(false)} className="flex-1 py-2 text-[9px] font-black uppercase hover:bg-gray-100 rounded-lg">Back</button>

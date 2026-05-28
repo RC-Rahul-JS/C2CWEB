@@ -4,10 +4,12 @@ import "react-calendar/dist/Calendar.css";
 import { useParams, useNavigate } from "react-router-dom";
 import useApi from "../../functions/api";
 import moment from "moment";
+import { useAuth } from "../../context/AuthContext";
 
 
 const Appointment = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [date, setDate] = useState(new Date());
     const [selectedTime, setSelectedTime] = useState(null);
     const [currentStep, setCurrentStep] = useState(1);
@@ -21,6 +23,7 @@ const Appointment = () => {
     const [addressDetails, setAddressDetails] = useState("");
     const [userPhoneNumber, setUserPhoneNumber] = useState("");
     const [age, setAge] = useState("");
+    const [dob, setDob] = useState("");
     const [gender, setGender] = useState("Male");
     const [symptoms, setSymptoms] = useState("");
     const [doctorProfile, setDoctorProfile] = useState(null);
@@ -34,6 +37,23 @@ const Appointment = () => {
         { name: "Amit Kumar", guardian: "Vinod Kumar", phone: "8877665544", email: "amit.k@mail.com", state: "Delhi", city: "New Delhi", address: "789, Connaught Place" },
         { name: "Sneha Gupta", guardian: "Alok Gupta", phone: "9988776655", email: "sneha@gmail.com", state: "Madhya Pradesh", city: "Indore", address: "101, Vijay Nagar" }
     ];
+
+    const handleDobChange = (e) => {
+        const selectedDob = e.target.value;
+        setDob(selectedDob);
+        if (selectedDob) {
+            const today = new Date();
+            const birthDate = new Date(selectedDob);
+            let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                calculatedAge--;
+            }
+            setAge(calculatedAge >= 0 ? calculatedAge.toString() : "0");
+        } else {
+            setAge("");
+        }
+    };
 
     const handleNameChange = (e) => {
         const val = e.target.value;
@@ -89,7 +109,7 @@ const Appointment = () => {
             try {
                 // Using the new requested API for fetching available dates
                 let res = await getapi(`kalra_mindcare/fatch_date_and_time/date/${id}`);
-                
+
                 // Fallback to standard endpoint if new one returns no data
                 if (!res.success || !res.data || (Array.isArray(res.data) && res.data.length === 0)) {
                     try {
@@ -102,12 +122,12 @@ const Appointment = () => {
                 if (res.success && res.data) {
                     console.log("Dates API Response:", res.data);
                     let rawData = res.data;
-                    
+
                     // Handle case where res.data is an object with a nested array or date keys
                     if (!Array.isArray(rawData) && typeof rawData === 'object') {
                         rawData = rawData.dates || rawData.data || Object.keys(rawData);
                     }
-                    
+
                     if (!Array.isArray(rawData)) rawData = [];
 
                     // Extract available dates. Handle both array of strings and array of objects.
@@ -119,7 +139,7 @@ const Appointment = () => {
                             // Look for date-like fields
                             val = d.id || d.date || d.day || d._id || Object.values(d).find(v => typeof v === 'string' && v.match(/^\d{4}-\d{2}-\d{2}/));
                         }
-                        
+
                         return val ? moment(val).format("YYYY-MM-DD") : null;
                     }).filter(d => d !== null && d !== "Invalid date");
 
@@ -139,9 +159,61 @@ const Appointment = () => {
         };
         const fetchProfile = async () => {
             try {
-                const res = await getapi('/profile');
-                if (res.success && res.data.phone) {
-                    setUserPhoneNumber(res.data.phone);
+                if (user && (user.phone || user.mobile || user.number || user.name)) {
+                    const phone = user.phone || user.mobile || user.number || "";
+                    const displayPhone = phone.startsWith('91') ? phone.slice(2) : phone;
+                    if (displayPhone) setUserPhoneNumber(displayPhone);
+                    if (user.name) setUserName(user.name);
+                    if (user.email) setUserEmail(user.email);
+                    if (user.address) setAddressDetails(user.address);
+                    
+                    // Load and calculate age from user context date of birth
+                    const userDob = user.date_of_birth || user.dateOfBirth || user.dob || "";
+                    if (userDob) {
+                        const formattedDob = moment(userDob).format("YYYY-MM-DD");
+                        if (formattedDob && formattedDob !== "Invalid date") {
+                            setDob(formattedDob);
+                            const today = new Date();
+                            const birthDate = new Date(formattedDob);
+                            let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+                            const monthDiff = today.getMonth() - birthDate.getMonth();
+                            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                                calculatedAge--;
+                            }
+                            setAge(calculatedAge >= 0 ? calculatedAge.toString() : "0");
+                        }
+                    }
+                    return;
+                }
+
+                const res = await getapi('/c2c_app/profile');
+                if (res.success && res.data) {
+                    const profile = res.data.data || res.data;
+                    const phone = profile.phone || profile.mobile || profile.number || "";
+                    // Strip 91 prefix if present for display
+                    const displayPhone = phone.startsWith('91') ? phone.slice(2) : phone;
+
+                    if (displayPhone) setUserPhoneNumber(displayPhone);
+                    if (profile.name) setUserName(profile.name);
+                    if (profile.email) setUserEmail(profile.email);
+                    if (profile.address) setAddressDetails(profile.address);
+
+                    // Load and calculate age from fetched profile date of birth
+                    const profileDob = profile.date_of_birth || profile.dateOfBirth || profile.dob || "";
+                    if (profileDob) {
+                        const formattedDob = moment(profileDob).format("YYYY-MM-DD");
+                        if (formattedDob && formattedDob !== "Invalid date") {
+                            setDob(formattedDob);
+                            const today = new Date();
+                            const birthDate = new Date(formattedDob);
+                            let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+                            const monthDiff = today.getMonth() - birthDate.getMonth();
+                            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                                calculatedAge--;
+                            }
+                            setAge(calculatedAge >= 0 ? calculatedAge.toString() : "0");
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching profile:', error);
@@ -160,7 +232,7 @@ const Appointment = () => {
             console.log("Fetching slots for:", selectedDate);
             // Using the new requested API for fetching time slots
             let response = await getapi(`kalra_mindcare/fatch_date_and_time/${selectedDate}/${id}`);
-            
+
             // Fallback to standard endpoint if new one returns no data
             if (!response.success || !response.data || (Array.isArray(response.data) && response.data.length === 0)) {
                 try {
@@ -221,8 +293,9 @@ const Appointment = () => {
                 symptoms: datas.symptoms,
                 age: datas.age,
                 timestamp: Date.now(),
-                dob: "2000-01-01", // Default if not provided
-                city: datas.city,
+                dob: datas.dob || "2000-01-01",
+                date_of_birth: datas.dob || "2000-01-01",
+                // city: datas.city,
                 address: datas.address,
                 sex: datas.gender
             });
@@ -253,12 +326,12 @@ const Appointment = () => {
                         });
 
                         // Using the exact same path structure as the AppointmentList GET call
-                        await postapi(`c2c_app/appointments/${datas.patient_phone}`, {
-                            ...datas,
-                            pay_id: response.razorpay_payment_id,
-                            amount: amount / 100
-                        });
-                        
+                        // await postapi(`c2c_app/appointments/${datas.patient_phone}`, {
+                        //     ...datas,
+                        //     pay_id: response.razorpay_payment_id,
+                        //     amount: amount / 100
+                        // });
+
                         // Keep this as a secondary sync just in case
                         await postapi('c2c_app/appointments/create', {
                             ...datas,
@@ -301,13 +374,15 @@ const Appointment = () => {
             patient_name: userName,
             guardian_name: fatherName,
             father_name: fatherName,
-            patient_phone: userPhoneNumber.startsWith('91') ? userPhoneNumber : `91${userPhoneNumber}`,
-            mobile: userPhoneNumber.startsWith('91') ? userPhoneNumber : `91${userPhoneNumber}`,
+            patient_phone: userPhoneNumber,
+            mobile: userPhoneNumber,
             patient_email: userEmail,
             email: userEmail,
             address: addressDetails,
             age: age || '25',
-            city: selectedCity,
+            dob: dob || '2000-01-01',
+            date_of_birth: dob || '2000-01-01',
+            // city: selectedCity,
             vaccine: true,
             gender: gender,
             sex: gender,
@@ -498,36 +573,40 @@ const Appointment = () => {
                                 </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>Phone Number</label>
-                                    <input 
-                                        style={{...styles.glassInput, cursor: 'not-allowed', opacity: 0.8}} 
-                                        placeholder="10-digit mobile" 
-                                        value={userPhoneNumber} 
-                                        readOnly 
-                                        required 
+                                    <input
+                                        style={{ ...styles.glassInput, cursor: 'not-allowed', opacity: 0.8 }}
+                                        placeholder="10-digit mobile"
+                                        value={userPhoneNumber}
+                                        readOnly
+                                        required
                                     />
                                 </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>Email Address</label>
                                     <input style={styles.glassInput} type="email" placeholder="example@mail.com" value={userEmail} onChange={e => setUserEmail(e.target.value)} required />
                                 </div>
+                               
                                 <div style={styles.inputGroup}>
-                                    <label style={styles.label}>State</label>
-                                    <select className="glass-select" style={styles.glassInput} value={selectedState} onChange={e => setSelectedState(e.target.value)}>
-                                        <option value="" style={styles.optionStyle}>Select State</option>
-                                        {Object.keys(indiaStatesAndCities).map(s => <option key={s} value={s} style={styles.optionStyle}>{s}</option>)}
-                                    </select>
-                                </div>
-                                <div style={styles.inputGroup}>
-                                    <label style={styles.label}>City</label>
-                                    <select className="glass-select" style={styles.glassInput} value={selectedCity} onChange={e => setSelectedCity(e.target.value)}>
-                                        <option value="" style={styles.optionStyle}>Select City</option>
-                                        {selectedState && indiaStatesAndCities[selectedState].map(c => <option key={c} value={c} style={styles.optionStyle}>{c}</option>)}
-                                    </select>
-                                </div>
-                                <div style={styles.inputGroup}>
-                                    <label style={styles.label}>Age</label>
-                                    <input style={styles.glassInput} type="number" placeholder="Patient Age" value={age} onChange={e => setAge(e.target.value)} required />
-                                </div>
+                                     <label style={styles.label}>Date of Birth</label>
+                                     <input 
+                                         style={styles.glassInput} 
+                                         type="date" 
+                                         value={dob} 
+                                         onChange={handleDobChange} 
+                                         required 
+                                     />
+                                 </div>
+                                 <div style={styles.inputGroup}>
+                                     <label style={styles.label}>Age (Auto-calculated)</label>
+                                     <input 
+                                         style={{ ...styles.glassInput, cursor: 'not-allowed', opacity: 0.85 }} 
+                                         type="text" 
+                                         placeholder="Select DOB first" 
+                                         value={age ? `${age} years` : ""} 
+                                         readOnly 
+                                         required 
+                                     />
+                                 </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>Gender</label>
                                     <select className="glass-select" style={styles.glassInput} value={gender} onChange={e => setGender(e.target.value)}>

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [showContent, setShowContent] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  const navigate = useNavigate();
 
   const columns = 10;
   const rows = 10;
@@ -28,10 +30,10 @@ const Header = () => {
   };
 
   const navItems = [
-    { title: "Book Appointment", subtitle: "Schedule Visit" },
-    { title: "Find Hospital", subtitle: "Locations" },
-    { title: "Health Check", subtitle: "Preventive Care" },
-    { title: "Expert Opinion", subtitle: "Consultation" },
+    { title: "Book Appointment", subtitle: "Schedule Visit", path: "/doctor_list" },
+    { title: "Find Hospital", subtitle: "Locations", path: "/hospital_list" },
+    { title: "Health Check", subtitle: "Preventive Care", path: "/services" },
+    { title: "Expert Opinion", subtitle: "Consultation", path: "/contact" },
   ];
 
   return (
@@ -129,6 +131,7 @@ const Header = () => {
         {navItems.map((item, index) => (
           <div 
             key={index} 
+            onClick={() => navigate(item.path)}
             className={`group relative flex items-center justify-between p-[6px_10px] md:p-[8px_12px] rounded-[12px] cursor-pointer transition-all duration-300 backdrop-blur-[12px] border
               ${hoveredIndex === index 
                 ? "bg-white/15 border-white/50 shadow-[0_10px_30px_rgba(0,150,255,0.2)]" 

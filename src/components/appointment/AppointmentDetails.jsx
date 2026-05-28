@@ -19,12 +19,12 @@ const AppointmentDetails = () => {
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
         window.addEventListener('resize', handleResize);
-        
+
         const fetchDetails = async () => {
             console.log("Fetching details for ID:", id);
             setLoading(true);
             let found = null;
-            
+
             try {
                 // 1. Try fetching the specific appointment directly
                 const res = await getapi(`c2c_app/appointments/${id}`);
@@ -53,7 +53,7 @@ const AppointmentDetails = () => {
             }
 
             setAppointment(found);
-            
+
             try {
                 const profileRes = await getapi('/profile');
                 if (profileRes.success) {
@@ -76,7 +76,7 @@ const AppointmentDetails = () => {
         return (
             <div style={styles.pageWrapper}>
                 <div style={styles.bgContainer}><div style={styles.blueOverlay}></div></div>
-                <div style={{...styles.loadingText, zIndex: 3, textAlign: 'center'}}>
+                <div style={{ ...styles.loadingText, zIndex: 3, textAlign: 'center' }}>
                     <div className="spinner"></div>
                     <p>Fetching Appointment Details...</p>
                 </div>
@@ -89,8 +89,8 @@ const AppointmentDetails = () => {
             <div style={styles.pageWrapper}>
                 <div style={styles.bgContainer}><div style={styles.blueOverlay}></div></div>
                 <div style={styles.glassContainer}>
-                    <h2 style={{color: 'white', textAlign: 'center'}}>Appointment Not Found</h2>
-                    <p style={{color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginBottom: '20px'}}>The requested appointment ID could not be retrieved.</p>
+                    <h2 style={{ color: 'white', textAlign: 'center' }}>Appointment Not Found</h2>
+                    <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginBottom: '20px' }}>The requested appointment ID could not be retrieved.</p>
                     <button style={styles.primaryBtn} onClick={() => navigate('/list')}>Back to Appointments</button>
                 </div>
             </div>
@@ -103,15 +103,15 @@ const AppointmentDetails = () => {
                 <div style={styles.blueOverlay}></div>
             </div>
 
-            <div style={{...styles.glassContainer, maxWidth: '800px'}} className="fade-in-up">
+            <div style={{ ...styles.glassContainer, maxWidth: '800px' }} className="fade-in-up">
                 <div style={styles.header}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                         <button style={styles.iconBtn} onClick={() => navigate('/list')}>←</button>
                         {appointment.doctorPic && (
-                            <img 
-                                src={appointment.doctorPic} 
-                                alt={appointment.doctorName} 
-                                style={styles.doctorImg} 
+                            <img
+                                src={appointment.doctorPic}
+                                alt={appointment.doctorName}
+                                style={styles.doctorImg}
                             />
                         )}
                         <h1 style={styles.heading}>Appointment Details</h1>
@@ -129,7 +129,7 @@ const AppointmentDetails = () => {
                         </div>
                         <div style={styles.infoRow}>
                             <InfoItem label="Gender" value={appointment.gender} />
-                            <InfoItem label="Date of Birth" value={appointment.dob} />
+                            <InfoItem label="Date of Birth" value={appointment.date_of_birth || appointment.dob} />
                         </div>
                         <div style={styles.infoRow}>
                             <InfoItem label="Vaccine Requirement" value={appointment.vaccine ? "YES" : "NO"} />
@@ -167,9 +167,9 @@ const AppointmentDetails = () => {
                         <div style={styles.fullWidthInfo}>
                             <InfoItem label="Reported Symptoms" value={appointment.symptoms} />
                         </div>
-                        <div style={{...styles.infoRow, marginTop: '15px'}}>
-                           <InfoItem label="Booking ID" value={appointment.id || appointment._id} />
-                           <InfoItem label="Created On" value={moment(appointment.created_at).format("DD/MM/YY HH:mm")} />
+                        <div style={{ ...styles.infoRow, marginTop: '15px' }}>
+                            <InfoItem label="Booking ID" value={appointment.id || appointment._id} />
+                            <InfoItem label="Created On" value={moment(appointment.created_at).format("DD/MM/YY HH:mm")} />
                         </div>
                     </div>
 
@@ -210,7 +210,7 @@ const InfoItem = ({ label, value, color }) => {
     return (
         <div style={styles.infoItem}>
             <span style={styles.label}>{label}</span>
-            <span style={{...styles.value, color: color || 'white'}}>{displayValue}</span>
+            <span style={{ ...styles.value, color: color || 'white' }}>{displayValue}</span>
         </div>
     );
 };
@@ -231,7 +231,7 @@ const styles = {
         background: "linear-gradient(135deg, rgba(2, 6, 23, 0.96), rgba(30, 58, 138, 0.88))", zIndex: 2
     },
     glassContainer: {
-        position: "relative", zIndex: 3, width: "100%", 
+        position: "relative", zIndex: 3, width: "100%",
         background: "rgba(255, 255, 255, 0.05)", backdropFilter: "blur(25px)",
         borderRadius: "28px", border: "1px solid rgba(255, 255, 255, 0.12)",
         boxShadow: "0 25px 60px rgba(0,0,0,0.5)", padding: "35px", overflow: "hidden"

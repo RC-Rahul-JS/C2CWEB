@@ -7,6 +7,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(),tailwindcss()],
   server: {
-    allowedHosts: ['68b355d8dae0.ngrok-free.app']
+    allowedHosts: ['http://192.168.29.145:5000'],
+    proxy: {
+      '/c2c_app': 'http://192.168.29.145:5000',
+      '/profile': 'http://192.168.29.145:5000',
+      '/doctors': 'http://192.168.29.145:5000',
+      '/upload': 'http://192.168.29.145:5000',
+      '/user': 'http://192.168.29.145:5000'
+    }
   }
 })

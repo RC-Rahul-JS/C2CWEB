@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import useApi from "../../functions/api";
 import moment from "moment";
 import { useNavigate } from "react-router-dom";
+import Cookies from "js-cookie";
+import { useAuth } from "../../context/AuthContext";
 
 const AppointmentList = () => {
     const [appointments, setAppointments] = useState([]);
@@ -10,27 +12,20 @@ const AppointmentList = () => {
     const { getapi } = useApi();
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
     const navigate = useNavigate();
+      const { user } = useAuth();
 
     useEffect(() => {
         const handleResize = () => setWindowWidth(window.innerWidth);
         window.addEventListener('resize', handleResize);
         const fetchAppointments = async () => {
             try {
-                // 1. Try to get the user's profile to fetch their specific appointments
-                let phone = "";
-                try {
-                    const profileRes = await getapi('/profile');
-                    if (profileRes.success && profileRes.data.phone) {
-                        phone = profileRes.data.phone.startsWith('91') ? profileRes.data.phone : `91${profileRes.data.phone}`;
-                    }
-                } catch (e) {
-                    console.warn("Could not fetch profile for phone-based appointment filtering", e);
-                }
+                // 1. Get the user_id from user context or cookies
+                const userId = (user && (user.number || user._id)) || Cookies.get('user_id');
 
-                // 2. Fetch appointments (with phone if available, otherwise general)
-                const endpoint = phone ? `c2c_app/appointments/${phone}` : 'c2c_app/appointments';
+                // 2. Fetch appointments (with userId if available, otherwise general)
+                const endpoint = userId ? `c2c_app/appointments/${userId}` : 'c2c_app/appointments';
                 const response = await getapi(endpoint);
-                
+console.log(response)
                 if (response.success) {
                     // Extract data robustly (handle {data: [...]} or just [...])
                     const data = response.data.data || (Array.isArray(response.data) ? response.data : []);
@@ -74,8 +69,8 @@ const AppointmentList = () => {
                 <div style={styles.blueOverlay}></div>
             </div>
 
-            <div style={{...styles.glassContainer, padding: isMobile ? "20px" : "40px"}} className="fade-in-up">
-                <h1 style={{...styles.heading, fontSize: isMobile ? "22px" : "28px"}}>Appointment Dashboard</h1>
+            <div style={{ ...styles.glassContainer, padding: isMobile ? "20px" : "40px" }} className="fade-in-up">
+                <h1 style={{ ...styles.heading, fontSize: isMobile ? "22px" : "28px" }}>Appointment Dashboard</h1>
 
                 {/* STATS GRID */}
                 <div style={styles.statsGrid}>
@@ -116,16 +111,16 @@ const AppointmentList = () => {
                                 {filteredAppointments.map((appt, index) => {
                                     const apptId = appt.id || appt._id;
                                     return (
-                                        <tr 
-                                            key={apptId} 
-                                            style={styles.tableRow} 
+                                        <tr
+                                            key={apptId}
+                                            style={styles.tableRow}
                                             className="table-row-hover"
                                             onClick={() => navigate(`/appointment_details/${apptId}`)}
                                         >
                                             <td style={styles.td}>{index + 1}</td>
-                                            <td style={{...styles.td, fontWeight: '600'}}>
-                                                <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                                                    {appt.doctorPic && <img src={appt.doctorPic} alt="" style={{width: '30px', height: '30px', borderRadius: '50%'}} />}
+                                            <td style={{ ...styles.td, fontWeight: '600' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    {appt.doctorPic && <img src={appt.doctorPic} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%' }} />}
                                                     {appt.patientName}
                                                 </div>
                                             </td>
@@ -133,7 +128,7 @@ const AppointmentList = () => {
                                             <td style={styles.td}>{appt.specialty}</td>
                                             <td style={styles.td}>{moment(appt.date).format("DD MMM YYYY")}</td>
                                             <td style={styles.td}>{appt.time}</td>
-                                            <td style={{...styles.td, color: '#4ade80', fontWeight: '700'}}>₹{appt.amount}</td>
+                                            <td style={{ ...styles.td, color: '#4ade80', fontWeight: '700' }}>₹{appt.amount}</td>
                                             <td style={styles.td}>
                                                 <span style={styles.statusBadge(statusColors[(appt.status || "Upcoming").toUpperCase()])}>
                                                     {appt.status || "Upcoming"}
@@ -150,8 +145,8 @@ const AppointmentList = () => {
                             {filteredAppointments.map((appt, index) => {
                                 const apptId = appt.id || appt._id;
                                 return (
-                                    <div 
-                                        key={apptId} 
+                                    <div
+                                        key={apptId}
                                         style={styles.mobileCard}
                                         onClick={() => navigate(`/appointment_details/${apptId}`)}
                                     >
@@ -164,9 +159,9 @@ const AppointmentList = () => {
                                         <div style={styles.mobileDataRow}>
                                             <span style={styles.mobileLabel}>Patient:</span>
                                             <span style={styles.mobileValue}>
-                                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end'}}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                                                     {appt.patientName}
-                                                    {appt.doctorPic && <img src={appt.doctorPic} alt="" style={{width: '20px', height: '20px', borderRadius: '50%'}} />}
+                                                    {appt.doctorPic && <img src={appt.doctorPic} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%' }} />}
                                                 </div>
                                             </span>
                                         </div>
@@ -186,7 +181,7 @@ const AppointmentList = () => {
                                         </div>
                                         <div style={styles.mobileDataRow}>
                                             <span style={styles.mobileLabel}>Fee:</span>
-                                            <span style={{...styles.mobileValue, color: '#4ade80', fontWeight: '700'}}>₹{appt.amount}</span>
+                                            <span style={{ ...styles.mobileValue, color: '#4ade80', fontWeight: '700' }}>₹{appt.amount}</span>
                                         </div>
                                     </div>
                                 );
@@ -277,7 +272,7 @@ const styles = {
         padding: "4px 10px", borderRadius: "8px", fontSize: "10px", fontWeight: "700",
         backgroundColor: `${color}20`, color: color, border: `1px solid ${color}40`, display: "inline-block"
     }),
-    
+
     // MOBILE SPECIFIC STYLES
     mobileList: { display: "flex", flexDirection: "column", gap: "15px" },
     mobileCard: {

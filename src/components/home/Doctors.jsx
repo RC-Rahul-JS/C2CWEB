@@ -37,6 +37,7 @@ const UnifiedMedicalPortal = () => {
   const fetch_doc = async () => {
     try {
       const result = await getapi('/doctor_list');
+      
       const rawDoctors = (result.data).map(element => ({
         id: element._id,
         name: element.name,
@@ -110,7 +111,7 @@ const UnifiedMedicalPortal = () => {
             </div>
             <h2 className="text-2xl lg:text-3xl font-black text-slate-900 leading-tight mb-3">Find Your <br className="hidden lg:block"/>Expert Doctor.</h2>
             <p className="text-slate-700 text-[13px] lg:text-[14px] leading-relaxed mb-6">Verified consultants available for instant booking.</p>
-            <button className="w-full py-3 lg:py-4 rounded-xl bg-slate-900 text-white text-[12px] lg:text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all">
+            <button onClick={() => navi('/doctor_list')} className="w-full py-3 lg:py-4 rounded-xl bg-slate-900 text-white text-[12px] lg:text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all">
               Book Appointment <ArrowRight size={16} />
             </button>
           </div>

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   UserPlus, 
   Calendar, 
@@ -110,6 +111,7 @@ const GradientSelect = ({ label, icon: Icon, options, ...props }) => (
 
 const App = () => {
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     titleName:'',firstName: '',middleName:'', lastName: '', dob: '', age: '', gender: '',
     email: '', phone: '', address: '', state: '', city: '',
@@ -270,8 +272,8 @@ const App = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <button className="p-1.5 text-slate-500 bg-white/20 hover:bg-white/40 border border-white/40 rounded-lg transition-all"><ArrowLeft size={14} /></button>
-            <button className="p-1.5 text-slate-500 bg-white/20 hover:bg-white/40 border border-white/40 rounded-lg transition-all"><FileText size={14} /></button>
+            <button type="button" onClick={() => navigate(-1)} className="p-1.5 text-slate-500 bg-white/20 hover:bg-white/40 border border-white/40 rounded-lg transition-all" title="Go Back"><ArrowLeft size={14} /></button>
+            <button type="button" className="p-1.5 text-slate-500 bg-white/20 hover:bg-white/40 border border-white/40 rounded-lg transition-all"><FileText size={14} /></button>
           </div>
         </div>
 
