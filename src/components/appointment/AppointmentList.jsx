@@ -28,8 +28,39 @@ const AppointmentList = () => {
 console.log(response)
                 if (response.success) {
                     // Extract data robustly (handle {data: [...]} or just [...])
-                    const data = response.data.data || (Array.isArray(response.data) ? response.data : []);
-                    setAppointments(Array.isArray(data) ? data : []);
+                    let data = response.data.data || (Array.isArray(response.data) ? response.data : []);
+                    data = Array.isArray(data) ? data : [];
+
+                    // Map keys from DB to frontend expected keys and Sort
+                    const sortedData = data.map(item => ({
+                        ...item,
+                        patientName: item.patient_name || item.patientName || "Unknown",
+                        date: item.date_of_appointment || item.date || new Date().toISOString(),
+                        time: item.time_slot || item.time || "",
+                        amount: item.amount || 0,
+                        status: item.status || "Upcoming",
+                        id: item._id || item.id
+                    })).sort((a, b) => {
+                        const dateA = moment(a.date, "YYYY-MM-DD");
+                        const dateB = moment(b.date, "YYYY-MM-DD");
+                        const today = moment().startOf('day');
+                        
+                        const isAFuture = dateA.isSameOrAfter(today);
+                        const isBFuture = dateB.isSameOrAfter(today);
+
+                        if (isAFuture && !isBFuture) return -1; // Future dates come first
+                        if (!isAFuture && isBFuture) return 1;  // Past dates come later
+
+                        // Both are future: Closest future first (ascending)
+                        if (isAFuture && isBFuture) {
+                            return dateA.diff(dateB);
+                        }
+                        
+                        // Both are past: Most recent past first (descending)
+                        return dateB.diff(dateA);
+                    });
+
+                    setAppointments(sortedData);
                 }
             } catch (error) {
                 console.error('Error fetching appointments:', error);

@@ -35,9 +35,11 @@ const UnifiedMedicalPortal = () => {
   
   const fetch_doc = async () => {
     try {
+      console.log("Fetching doctors...");
       const result = await getapi('/doctor_list');
+      console.log("Doctor list result:", result);
       
-      const rawDoctors = (result.data).map(element => ({
+      const rawDoctors = (result.data || []).map(element => ({
         id: element._id,
         name: element.name,
         image: element.profile_pic || element.photo || element.imageUrl,
@@ -47,15 +49,18 @@ const UnifiedMedicalPortal = () => {
       }));
       localStorage.setItem("userData", JSON.stringify(rawDoctors));
       setdoctors(rawDoctors);
-      console.log(rawDoctors)
+      console.log("Mapped doctors:", rawDoctors);
     } catch (error) {
-      console.error(error)
+      console.error("fetch_doc ERROR:", error);
     }
   }
 
   const fetch_labs = async () => {
     try {
+      console.log("Fetching labs...");
       const result = await getapi('/c2c_app/labs/requests');
+      console.log("Labs list result:", result);
+      
       let data = result.data;
       let list = [];
       if (Array.isArray(data)) list = data;
@@ -79,8 +84,9 @@ const UnifiedMedicalPortal = () => {
           }
       });
       setLabs(approvedLabs);
+      console.log("Mapped labs:", approvedLabs);
     } catch (error) {
-      console.error(error);
+      console.error("fetch_labs ERROR:", error);
     }
   }
 

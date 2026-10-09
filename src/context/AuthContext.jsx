@@ -18,11 +18,12 @@ export const AuthProvider = ({ children }) => {
 
     const login = (userData, authToken) => {
         console.log(userData, authToken);
+        const actualToken = authToken || userData?.user_id || userData?._id || 'c2c-auth-token';
 
-        if (authToken) {
-            localStorage.setItem('token', authToken);
-            Cookies.set('token', authToken, { expires: 1, path: '/' });
-            setToken(authToken);
+        if (actualToken) {
+            localStorage.setItem('token', actualToken);
+            Cookies.set('token', actualToken, { expires: 1, path: '/' });
+            setToken(actualToken);
         }
         if (userData) {
             localStorage.setItem('user_details', JSON.stringify(userData));

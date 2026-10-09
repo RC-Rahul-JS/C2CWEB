@@ -14,6 +14,7 @@ const Appointment = () => {
     const [selectedTime, setSelectedTime] = useState(null);
     const [currentStep, setCurrentStep] = useState(1);
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+    const [currentBookingSelection, setCurrentBookingSelection] = useState(null);
 
     const [userName, setUserName] = useState("");
     const [fatherName, setFatherName] = useState("");
@@ -161,12 +162,11 @@ const Appointment = () => {
             try {
                 if (user && (user.phone || user.mobile || user.number || user.name)) {
                     const phone = user.phone || user.mobile || user.number || "";
-                    const displayPhone = phone.startsWith('91') ? phone.slice(2) : phone;
-                    if (displayPhone) setUserPhoneNumber(displayPhone);
+                    if (phone) setUserPhoneNumber(phone);
                     if (user.name) setUserName(user.name);
                     if (user.email) setUserEmail(user.email);
                     if (user.address) setAddressDetails(user.address);
-                    
+
                     // Load and calculate age from user context date of birth
                     const userDob = user.date_of_birth || user.dateOfBirth || user.dob || "";
                     if (userDob) {
@@ -190,10 +190,7 @@ const Appointment = () => {
                 if (res.success && res.data) {
                     const profile = res.data.data || res.data;
                     const phone = profile.phone || profile.mobile || profile.number || "";
-                    // Strip 91 prefix if present for display
-                    const displayPhone = phone.startsWith('91') ? phone.slice(2) : phone;
-
-                    if (displayPhone) setUserPhoneNumber(displayPhone);
+                    if (phone) setUserPhoneNumber(phone);
                     if (profile.name) setUserName(profile.name);
                     if (profile.email) setUserEmail(profile.email);
                     if (profile.address) setAddressDetails(profile.address);
@@ -256,10 +253,15 @@ const Appointment = () => {
             finalSlots = ["10:30 AM", "11:30 AM", "12:30 PM", "01:30 PM", "02:30 PM", "03:30 PM", "04:30 PM", "05:30 PM"];
         }
 
-        // Normalize slots to [{ id: "slot_value" }] format
+        // Normalize slots to [{ id: "slot_value", ...otherProps }] format
         const formattedSlots = finalSlots.map(s => {
             if (typeof s === 'string') return { id: s };
-            if (s && typeof s === 'object') return { id: s.id || s.time || s._id || Object.values(s)[0] };
+            if (s && typeof s === 'object') {
+                return {
+                    ...s, // Preserve all properties like 'enabled' and 'title'
+                    id: s.id || s.time || s._id || Object.values(s)[0]
+                };
+            }
             return null;
         }).filter(s => s !== null);
 
@@ -307,7 +309,7 @@ const Appointment = () => {
             const { id: order_id, amount, currency } = res.data;
 
             const options = {
-                key: "rzp_test_Si1LNCQSwavuVC",
+                key: "rzp_test_TlMQdAmmaO6PuE",
                 amount: amount.toString(),
                 currency,
                 name: "Care2connect",
@@ -322,7 +324,8 @@ const Appointment = () => {
                         await postapi('c2c_app/verify', {
                             razorpay_order_id: response.razorpay_order_id,
                             razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature
+                            razorpay_signature: response.razorpay_signature,
+                            amount: amount / 100
                         });
 
                         // Using the exact same path structure as the AppointmentList GET call
@@ -333,11 +336,11 @@ const Appointment = () => {
                         // });
 
                         // Keep this as a secondary sync just in case
-                        await postapi('c2c_app/appointments/create', {
-                            ...datas,
-                            pay_id: response.razorpay_payment_id,
-                            amount: amount / 100
-                        });
+                        // await postapi('c2c_app/appointments/create', {
+                        //     ...datas,
+                        //     pay_id: response.razorpay_payment_id,
+                        //     amount: amount / 100
+                        // });
                     } catch (error) {
                         console.error("Background appointment processing failed:", error);
                     }
@@ -365,7 +368,7 @@ const Appointment = () => {
     const handleConfirmAppointment = async (e) => {
         e.preventDefault();
 
-        if (!userName || !fatherName || !userEmail || !selectedState || !selectedCity || !addressDetails || userPhoneNumber.length !== 10) {
+        if (!userName || !fatherName || !userEmail || !addressDetails || userPhoneNumber.length !== 10) {
             alert("Please fill in all required details correctly (including a 10-digit phone number).");
             return;
         }
@@ -410,6 +413,45 @@ const Appointment = () => {
         "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Nashik"],
         "Delhi": ["New Delhi", "North Delhi", "South Delhi"]
     };
+
+    const renderSlots = () => (
+        <div style={{ marginTop: '30px' }} className={slots.length > 0 ? "active-detail-glow" : ""}>
+            <h3 style={styles.subHeading}>Available Slots • {moment(date).format("Do MMMM")}</h3>
+            <div style={isMobile ? styles.slotsGridMobile : styles.slotsGridDesktop}>
+                {slots.length > 0 ? slots.map((rawSlot, index) => {
+                    let slot = rawSlot;
+                    if (typeof rawSlot === 'string' && rawSlot.startsWith('{')) {
+                        try { slot = JSON.parse(rawSlot); } catch (e) { }
+                    }
+
+                    const slotId = typeof slot === 'object' && slot ? slot.id : slot;
+                    const slotTitle = typeof slot === 'object' && slot ? (slot.title || slot.id) : slot;
+
+                    let isDisabled = false;
+                    if (typeof slot === 'object' && slot !== null) {
+                        if ('enabled' in slot && (slot.enabled === false || slot.enabled === "false" || String(slot.enabled).toLowerCase() === 'false' || slot.enabled === 0)) {
+                            isDisabled = true;
+                        }
+                    }
+
+                    return (
+                        <button
+                            key={slotId || index}
+                            disabled={isDisabled}
+                            className="slot-pop-animation"
+                            style={{
+                                ...styles.slotBtn(selectedTime === slotId, isDisabled),
+                                animationDelay: `${index * 0.04}s`,
+                            }}
+                            onClick={() => setSelectedTime(slotId)}
+                        >
+                            {slotTitle}
+                        </button>
+                    );
+                }) : <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Please select a date to view available slots.</p>}
+            </div>
+        </div>
+    );
 
     return (
         <div style={styles.pageWrapper}>
@@ -498,42 +540,83 @@ const Appointment = () => {
                                     Consultation Fee: ₹{doctorProfile.appointmentfee || '200'}
                                 </p>
                             )}
-                            <div style={styles.calendarGlass}>
-                                <Calendar
-                                    onChange={handleDateChange}
-                                    value={date}
-                                    minDate={new Date()}
-                                    maxDate={doctorProfile?.appointmentdatelimit ? moment().add(parseInt(doctorProfile.appointmentdatelimit) - 1, 'days').toDate() : undefined}
-                                    className="custom-calendar"
-                                />
-                            </div>
-
-                            <div style={{ marginTop: '30px' }} className={slots.length > 0 ? "active-detail-glow" : ""}>
-                                <h3 style={styles.subHeading}>Available Slots • {moment(date).format("Do MMMM")}</h3>
-                                <div style={isMobile ? styles.slotsGridMobile : styles.slotsGridDesktop}>
-                                    {slots.length > 0 ? slots.map((slot, index) => (
+                            {doctorProfile?.current_booking ? (
+                                <div>
+                                    <h3 style={styles.subHeading}>Select Booking Day</h3>
+                                    <div style={{ display: 'flex', gap: '15px', marginBottom: '30px' }}>
                                         <button
-                                            key={slot.id}
-                                            className="slot-pop-animation"
                                             style={{
-                                                ...styles.slotBtn(selectedTime === slot.id),
-                                                animationDelay: `${index * 0.04}s`,
+                                                ...styles.secondaryBtn,
+                                                flex: 1,
+                                                padding: '20px',
+                                                background: currentBookingSelection === 'today' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.05)',
+                                                border: currentBookingSelection === 'today' ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)'
                                             }}
-                                            onClick={() => setSelectedTime(slot.id)}
+                                            onClick={() => {
+                                                setCurrentBookingSelection('today');
+                                                setDate(new Date());
+                                                setSelectedTime("Current Booking");
+                                                setCurrentStep(2);
+                                            }}
                                         >
-                                            {slot.id}
+                                            <span style={{ fontSize: '16px', display: 'block', marginBottom: '5px' }}>Today</span>
+                                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Direct Booking</span>
                                         </button>
-                                    )) : <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Please select a date to view available slots.</p>}
-                                </div>
-                            </div>
+                                        <button
+                                            style={{
+                                                ...styles.secondaryBtn,
+                                                flex: 1,
+                                                padding: '20px',
+                                                background: currentBookingSelection === 'tomorrow' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.05)',
+                                                border: currentBookingSelection === 'tomorrow' ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)'
+                                            }}
+                                            onClick={() => {
+                                                setCurrentBookingSelection('tomorrow');
+                                                const tomorrow = moment().add(1, 'days').toDate();
+                                                setDate(tomorrow);
+                                                setSelectedTime(null);
+                                                fetchslots(moment(tomorrow).format("YYYY-MM-DD"));
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '16px', display: 'block', marginBottom: '5px' }}>Tomorrow</span>
+                                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Select a slot</span>
+                                        </button>
+                                    </div>
 
-                            <button
-                                disabled={!selectedTime}
-                                style={styles.primaryBtn(!selectedTime)}
-                                onClick={() => setCurrentStep(2)}
-                            >
-                                Continue to Patient Details
-                            </button>
+                                    {currentBookingSelection === 'tomorrow' && (
+                                        <>
+                                            {renderSlots()}
+                                            <button
+                                                disabled={!selectedTime}
+                                                style={styles.primaryBtn(!selectedTime)}
+                                                onClick={() => setCurrentStep(2)}
+                                            >
+                                                Continue to Patient Details
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <div style={styles.calendarGlass}>
+                                        <Calendar
+                                            onChange={handleDateChange}
+                                            value={date}
+                                            minDate={new Date()}
+                                            maxDate={doctorProfile?.appointmentdatelimit ? moment().add(parseInt(doctorProfile.appointmentdatelimit) - 1, 'days').toDate() : undefined}
+                                            className="custom-calendar"
+                                        />
+                                    </div>
+                                    {renderSlots()}
+                                    <button
+                                        disabled={!selectedTime}
+                                        style={styles.primaryBtn(!selectedTime)}
+                                        onClick={() => setCurrentStep(2)}
+                                    >
+                                        Continue to Patient Details
+                                    </button>
+                                </>
+                            )}
                         </div>
                     )}
 
@@ -583,30 +666,30 @@ const Appointment = () => {
                                 </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>Email Address</label>
-                                    <input style={styles.glassInput} type="email" placeholder="example@mail.com" value={userEmail} onChange={e => setUserEmail(e.target.value)} required />
+                                    <input style={styles.glassInput} type="email" placeholder="example@mail.com" value={userEmail} onChange={e => setUserEmail(e.target.value)} />
                                 </div>
-                               
+
                                 <div style={styles.inputGroup}>
-                                     <label style={styles.label}>Date of Birth</label>
-                                     <input 
-                                         style={styles.glassInput} 
-                                         type="date" 
-                                         value={dob} 
-                                         onChange={handleDobChange} 
-                                         required 
-                                     />
-                                 </div>
-                                 <div style={styles.inputGroup}>
-                                     <label style={styles.label}>Age (Auto-calculated)</label>
-                                     <input 
-                                         style={{ ...styles.glassInput, cursor: 'not-allowed', opacity: 0.85 }} 
-                                         type="text" 
-                                         placeholder="Select DOB first" 
-                                         value={age ? `${age} years` : ""} 
-                                         readOnly 
-                                         required 
-                                     />
-                                 </div>
+                                    <label style={styles.label}>Date of Birth</label>
+                                    <input
+                                        style={styles.glassInput}
+                                        type="date"
+                                        value={dob}
+                                        onChange={handleDobChange}
+                                        required
+                                    />
+                                </div>
+                                <div style={styles.inputGroup}>
+                                    <label style={styles.label}>Age (Auto-calculated)</label>
+                                    <input
+                                        style={{ ...styles.glassInput, cursor: 'not-allowed', opacity: 0.85 }}
+                                        type="text"
+                                        placeholder="Select DOB first"
+                                        value={age ? `${age} years` : ""}
+                                        readOnly
+                                        required
+                                    />
+                                </div>
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>Gender</label>
                                     <select className="glass-select" style={styles.glassInput} value={gender} onChange={e => setGender(e.target.value)}>
@@ -623,9 +706,9 @@ const Appointment = () => {
                                     <label style={styles.label}>Complete Address</label>
                                     <textarea style={{ ...styles.glassInput, height: '80px' }} value={addressDetails} onChange={e => setAddressDetails(e.target.value)} required />
                                 </div>
-                                <div style={{ ...styles.btnRow, gridColumn: isMobile ? 'span 1' : 'span 2', flexDirection: isMobile ? 'column-reverse' : 'row' }} className="responsive-btns">
-                                    <button type="button" style={styles.secondaryBtn} onClick={() => setCurrentStep(1)}>Back</button>
-                                    <button type="submit" style={styles.primaryBtn(false)}>Proceed to Payment</button>
+                                <div style={{ display: 'flex', gap: '15px', gridColumn: isMobile ? 'span 1' : 'span 2', flexDirection: isMobile ? 'column-reverse' : 'row', marginTop: '15px' }} className="responsive-btns">
+                                    <button type="button" style={{ ...styles.secondaryBtn, padding: '14px', flex: 1, marginTop: 0, height: '50px' }} onClick={() => setCurrentStep(1)}>Back</button>
+                                    <button type="submit" style={{ ...styles.primaryBtn(false), padding: '14px', width: 'auto', flex: 2, marginTop: 0, height: '50px' }}>Proceed to Payment</button>
                                 </div>
                             </form>
                         </div>
@@ -789,13 +872,19 @@ const styles = {
         gap: "10px"
     },
 
-    slotBtn: (active) => ({
+    slotBtn: (active, disabled) => ({
         padding: "10px 20px",
         borderRadius: "10px",
         border: active ? "2px solid #60a5fa" : "1px solid rgba(255,255,255,0.1)",
         background: active ? "#60a5fa" : "rgba(255, 255, 255, 0.05)",
-        color: "white", fontWeight: "600", cursor: "pointer", transition: "all 0.3s ease", fontSize: '13px',
-        minWidth: '90px'
+        color: "white",
+        fontWeight: "600",
+        cursor: disabled ? "not-allowed" : "pointer",
+        transition: "all 0.3s ease",
+        fontSize: '13px',
+        minWidth: '90px',
+        textDecoration: "none",
+        opacity: disabled ? 0.3 : 1
     }),
     primaryBtn: (disabled) => ({
         width: "100%", marginTop: "30px", padding: "16px", borderRadius: "12px",

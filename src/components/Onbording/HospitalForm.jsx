@@ -147,7 +147,7 @@ const HospitalForm = ({ onSubmitSuccess }) => {
 
     try {
       const res = await fetch(
-        `http://192.168.29.145:5000/duniyape/aws/upload`,
+        `${import.meta.env.VITE_API_URL}/duniyape/aws/upload`,
         { method: "POST", body: formData }
       );
       const data = await res.json();
