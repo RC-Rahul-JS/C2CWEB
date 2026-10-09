@@ -2,11 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import useApi from "../../functions/api";
 import moment from "moment";
+import Cookies from "js-cookie";
+import { useAuth } from "../../context/AuthContext";
 
 const AppointmentDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { getapi } = useApi();
+    const { user } = useAuth();
     const [appointment, setAppointment] = useState(null);
     const [userProfile, setUserProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -31,6 +34,9 @@ const AppointmentDetails = () => {
                 console.log("Direct Fetch Response:", res);
                 if (res.success) {
                     found = res.data.data || res.data;
+                    if (Array.isArray(found)) {
+                        found = found.length > 0 ? found[0] : null;
+                    }
                 }
             } catch (error) {
                 console.warn("Direct fetch failed, trying list fallback...", error);
@@ -40,7 +46,9 @@ const AppointmentDetails = () => {
             if (!found) {
                 try {
                     console.log("Attempting list fallback...");
-                    const listRes = await getapi('c2c_app/appointments');
+                    const userId = (user && (user.number || user._id)) || Cookies.get('user_id');
+                    const endpoint = userId ? `c2c_app/appointments/${userId}` : 'c2c_app/appointments';
+                    const listRes = await getapi(endpoint);
                     const list = listRes.data.data || (Array.isArray(listRes.data) ? listRes.data : []);
                     console.log("List fallback data:", list);
                     if (listRes.success && Array.isArray(list)) {
@@ -124,11 +132,11 @@ const AppointmentDetails = () => {
                     <div style={styles.section}>
                         <h2 style={styles.sectionTitle}>👤 Patient Identity</h2>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Full Name" value={appointment.patientName} />
-                            <InfoItem label="Guardian's Name" value={appointment.fatherName} />
+                            <InfoItem label="Full Name" value={appointment.patient_name || appointment.patientName} />
+                            <InfoItem label="Guardian's Name" value={appointment.father_name || appointment.guardian_name || appointment.fatherName} />
                         </div>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Gender" value={appointment.gender} />
+                            <InfoItem label="Gender" value={appointment.sex || appointment.gender} />
                             <InfoItem label="Date of Birth" value={appointment.date_of_birth || appointment.dob} />
                         </div>
                         <div style={styles.infoRow}>
@@ -141,14 +149,15 @@ const AppointmentDetails = () => {
                     <div style={styles.section}>
                         <h2 style={styles.sectionTitle}>📍 Contact & Location</h2>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Phone Number" value={userProfile?.phone || appointment.patient_phone} />
-                            <InfoItem label="Email Address" value={appointment.patient_email} />
+                            <InfoItem label="Phone Number" value={appointment.phone || appointment.mobile || appointment.patient_phone || userProfile?.phone} />
+                            <InfoItem label="Email Address" value={appointment.email || appointment.patient_email} />
                         </div>
                         <div style={styles.infoRow}>
                             <InfoItem label="State" value={appointment.state} />
                             <InfoItem label="City" value={appointment.city} />
                         </div>
-                        <div style={styles.fullWidthInfo}>
+                        <div style={styles.infoRow}>
+                            <InfoItem label="Pincode" value={appointment.pincode} />
                             <InfoItem label="Physical Address" value={appointment.address} />
                         </div>
                     </div>
@@ -157,19 +166,19 @@ const AppointmentDetails = () => {
                     <div style={styles.section}>
                         <h2 style={styles.sectionTitle}>🏥 Booking & Clinical Details</h2>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Assigned Doctor" value={appointment.doctorName} />
-                            <InfoItem label="Department / Speciality" value={appointment.specialty} />
+                            <InfoItem label="Assigned Doctor" value={appointment.doctor_name || appointment.doctorName} />
+                            <InfoItem label="Department / Speciality" value={appointment.speciality || appointment.specialty} />
                         </div>
                         <div style={styles.infoRow}>
-                            <InfoItem label="Appointment Date" value={moment(appointment.date).format("dddd, Do MMMM YYYY")} />
-                            <InfoItem label="Scheduled Time" value={appointment.time} />
+                            <InfoItem label="Appointment Date" value={moment(appointment.date_of_appointment || appointment.date).format("dddd, Do MMMM YYYY")} />
+                            <InfoItem label="Scheduled Time" value={appointment.time_slot || appointment.time} />
                         </div>
                         <div style={styles.fullWidthInfo}>
                             <InfoItem label="Reported Symptoms" value={appointment.symptoms} />
                         </div>
                         <div style={{ ...styles.infoRow, marginTop: '15px' }}>
                             <InfoItem label="Booking ID" value={appointment.id || appointment._id} />
-                            <InfoItem label="Created On" value={moment(appointment.created_at).format("DD/MM/YY HH:mm")} />
+                            <InfoItem label="Created On" value={moment(appointment.createdAt || appointment.created_at).format("DD/MM/YY HH:mm")} />
                         </div>
                     </div>
 
@@ -188,7 +197,7 @@ const AppointmentDetails = () => {
                 </div>
 
                 <div style={styles.footer}>
-                    <button style={styles.primaryBtn} onClick={() => window.print()}>Save as PDF / Print</button>
+                    {/* <button style={styles.primaryBtn} onClick={() => window.print()}>Save as PDF / Print</button> */}
                 </div>
             </div>
 

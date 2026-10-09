@@ -21,6 +21,8 @@ const Appointment = () => {
     const [userEmail, setUserEmail] = useState("");
     const [selectedState, setSelectedState] = useState("");
     const [selectedCity, setSelectedCity] = useState("");
+    const [pinCode, setPinCode] = useState("");
+    const [isFetchingPin, setIsFetchingPin] = useState(false);
     const [addressDetails, setAddressDetails] = useState("");
     const [userPhoneNumber, setUserPhoneNumber] = useState("");
     const [age, setAge] = useState("");
@@ -38,6 +40,34 @@ const Appointment = () => {
         { name: "Amit Kumar", guardian: "Vinod Kumar", phone: "8877665544", email: "amit.k@mail.com", state: "Delhi", city: "New Delhi", address: "789, Connaught Place" },
         { name: "Sneha Gupta", guardian: "Alok Gupta", phone: "9988776655", email: "sneha@gmail.com", state: "Madhya Pradesh", city: "Indore", address: "101, Vijay Nagar" }
     ];
+
+    const handlePinCodeChange = async (e) => {
+        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+        setPinCode(val);
+
+        if (val.length === 6) {
+            setIsFetchingPin(true);
+            try {
+                const res = await fetch(`https://api.postalpincode.in/pincode/${val}`);
+                const data = await res.json();
+                if (data && data[0] && data[0].Status === "Success") {
+                    const postOffice = data[0].PostOffice[0];
+                    setSelectedCity(postOffice.District);
+                    setSelectedState(postOffice.State);
+                } else {
+                    setSelectedCity("");
+                    setSelectedState("");
+                }
+            } catch (err) {
+                console.error("Error fetching pincode:", err);
+            } finally {
+                setIsFetchingPin(false);
+            }
+        } else {
+            setSelectedCity("");
+            setSelectedState("");
+        }
+    };
 
     const handleDobChange = (e) => {
         const selectedDob = e.target.value;
@@ -297,7 +327,9 @@ const Appointment = () => {
                 timestamp: Date.now(),
                 dob: datas.dob || "2000-01-01",
                 date_of_birth: datas.dob || "2000-01-01",
-                // city: datas.city,
+                city: datas.city,
+                state: datas.state,
+                pincode: datas.pincode,
                 address: datas.address,
                 sex: datas.gender
             });
@@ -309,7 +341,7 @@ const Appointment = () => {
             const { id: order_id, amount, currency } = res.data;
 
             const options = {
-                key: "rzp_test_TlMQdAmmaO6PuE",
+                key: "rzp_live_R9tGl7bLSIBV6f",
                 amount: amount.toString(),
                 currency,
                 name: "Care2connect",
@@ -368,8 +400,13 @@ const Appointment = () => {
     const handleConfirmAppointment = async (e) => {
         e.preventDefault();
 
-        if (!userName || !fatherName || !userEmail || !addressDetails || userPhoneNumber.length !== 10) {
-            alert("Please fill in all required details correctly (including a 10-digit phone number).");
+        if (!userName || !fatherName || !userPhoneNumber || userPhoneNumber.length < 10) {
+            alert("Please fill in all required details correctly (including a valid phone number).");
+            return;
+        }
+
+        if (!pinCode || pinCode.length !== 6 || !selectedCity || !selectedState) {
+            alert("Pin code is wrong or not found. Please enter a valid 6-digit Pincode.");
             return;
         }
 
@@ -385,7 +422,9 @@ const Appointment = () => {
             age: age || '25',
             dob: dob || '2000-01-01',
             date_of_birth: dob || '2000-01-01',
-            // city: selectedCity,
+            city: selectedCity,
+            state: selectedState,
+            pincode: pinCode,
             vaccine: true,
             gender: gender,
             sex: gender,
@@ -431,6 +470,18 @@ const Appointment = () => {
                     if (typeof slot === 'object' && slot !== null) {
                         if ('enabled' in slot && (slot.enabled === false || slot.enabled === "false" || String(slot.enabled).toLowerCase() === 'false' || slot.enabled === 0)) {
                             isDisabled = true;
+                        }
+                    }
+
+                    // Check if slot time has passed for today
+                    if (!isDisabled && moment(date).isSame(moment(), 'day') && typeof slotTitle === 'string') {
+                        const startTimeStr = slotTitle.split('-')[0].trim();
+                        if (startTimeStr) {
+                            // Combine today's date with the slot time to compare accurately
+                            const slotTime = moment(`${moment().format("YYYY-MM-DD")} ${startTimeStr}`, "YYYY-MM-DD hh:mm A");
+                            if (slotTime.isValid() && slotTime.isBefore(moment())) {
+                                isDisabled = true;
+                            }
                         }
                     }
 
@@ -698,13 +749,44 @@ const Appointment = () => {
                                         <option value="Other" style={styles.optionStyle}>Other</option>
                                     </select>
                                 </div>
+                                <div style={styles.inputGroup}>
+                                    <label style={styles.label}>Pincode</label>
+                                    <input
+                                        style={styles.glassInput}
+                                        placeholder="6-digit Pincode"
+                                        value={pinCode}
+                                        onChange={handlePinCodeChange}
+                                        required
+                                    />
+                                    {isFetchingPin && <span style={{ fontSize: '10px', color: '#60a5fa', position: 'absolute', bottom: '-18px' }}>Fetching details...</span>}
+                                </div>
+                                <div style={styles.inputGroup}>
+                                    <label style={styles.label}>City (Auto-fill)</label>
+                                    <input
+                                        style={{ ...styles.glassInput, opacity: 0.8 }}
+                                        placeholder="City"
+                                        value={selectedCity}
+                                        onChange={(e) => setSelectedCity(e.target.value)}
+                                        readOnly
+                                    />
+                                </div>
+                                <div style={styles.inputGroup}>
+                                    <label style={styles.label}>State (Auto-fill)</label>
+                                    <input
+                                        style={{ ...styles.glassInput, opacity: 0.8 }}
+                                        placeholder="State"
+                                        value={selectedState}
+                                        onChange={(e) => setSelectedState(e.target.value)}
+                                        readOnly
+                                    />
+                                </div>
                                 <div style={{ ...styles.inputGroup, gridColumn: isMobile ? 'span 1' : 'span 2' }}>
                                     <label style={styles.label}>Symptoms / Reason for Visit</label>
                                     <input style={styles.glassInput} placeholder="Briefly describe symptoms" value={symptoms} onChange={e => setSymptoms(e.target.value)} />
                                 </div>
                                 <div style={{ ...styles.inputGroup, gridColumn: isMobile ? 'span 1' : 'span 2' }} className="responsive-address">
                                     <label style={styles.label}>Complete Address</label>
-                                    <textarea style={{ ...styles.glassInput, height: '80px' }} value={addressDetails} onChange={e => setAddressDetails(e.target.value)} required />
+                                    <textarea style={{ ...styles.glassInput, height: '80px' }} value={addressDetails} onChange={e => setAddressDetails(e.target.value)} />
                                 </div>
                                 <div style={{ display: 'flex', gap: '15px', gridColumn: isMobile ? 'span 1' : 'span 2', flexDirection: isMobile ? 'column-reverse' : 'row', marginTop: '15px' }} className="responsive-btns">
                                     <button type="button" style={{ ...styles.secondaryBtn, padding: '14px', flex: 1, marginTop: 0, height: '50px' }} onClick={() => setCurrentStep(1)}>Back</button>
@@ -902,7 +984,7 @@ const styles = {
         color: "white"
     },
     formGrid: { display: "grid", gap: "15px" },
-    inputGroup: { display: "flex", flexDirection: "column" },
+    inputGroup: { display: "flex", flexDirection: "column", position: "relative" },
     suggestionBox: {
         position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10,
         background: "rgba(15, 23, 42, 0.95)", border: "1px solid rgba(255,255,255,0.15)",

@@ -43,20 +43,7 @@ console.log(response)
                     })).sort((a, b) => {
                         const dateA = moment(a.date, "YYYY-MM-DD");
                         const dateB = moment(b.date, "YYYY-MM-DD");
-                        const today = moment().startOf('day');
-                        
-                        const isAFuture = dateA.isSameOrAfter(today);
-                        const isBFuture = dateB.isSameOrAfter(today);
-
-                        if (isAFuture && !isBFuture) return -1; // Future dates come first
-                        if (!isAFuture && isBFuture) return 1;  // Past dates come later
-
-                        // Both are future: Closest future first (ascending)
-                        if (isAFuture && isBFuture) {
-                            return dateA.diff(dateB);
-                        }
-                        
-                        // Both are past: Most recent past first (descending)
+                        // Strict descending sort: newest dates (like 2027) come first, older dates (like 2026) later.
                         return dateB.diff(dateA);
                     });
 

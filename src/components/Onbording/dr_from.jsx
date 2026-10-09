@@ -23,7 +23,9 @@ const Form = ({ onSubmitSuccess }) => {
     name: "", email: "", phone: "", secondaryId: "", speciality: "", experience: "",
     address: "", district: "", state: "", password: "", confirmPassword: "",
     phonenumberID: "", whatsAppBusinessAccountID: "", doctorfee: "",
-    appointmentfee: "", otcfee: "", platformfee: "", appointmentdatelimit: "", role: "doctor"
+    appointmentfee: "", otcfee: "", platformfee: "", appointmentdatelimit: "", role: "doctor",
+    seconddoctorfee: "", secondappointmentfee: "", secondplatformfee: "", reappointmentdayslimit: "",
+    current_booking: false
   });
 
   const [bankDetails, setBankDetails] = useState({
@@ -54,7 +56,7 @@ const Form = ({ onSubmitSuccess }) => {
 
   useEffect(() => {
     console.log("🚀 [Doctor Onboarding] Fetching all hospital requests to build Approved Hospitals list...");
-    fetch('https://hyphen-chemo-exponent.ngrok-free.dev/c2c_app/hospital/requests', {
+    fetch(`${import.meta.env.VITE_API_URL}/c2c_app/hospital/requests`, {
       headers: {
         'ngrok-skip-browser-warning': 'true'
       }
@@ -197,14 +199,14 @@ const Form = ({ onSubmitSuccess }) => {
         photo: s3Urls.photo || uploadedFiles.photo?.preview || null,
       };
 
-      const finalData = { 
+      const finalData = {
         id: `APP-${Date.now().toString().slice(-4)}`,
         status: 'Pending',
         date: new Date().toISOString().split('T')[0],
-        onboarding, 
-        essentials, 
+        onboarding,
+        essentials,
         bankDetails,
-        documents: documentsUrls 
+        documents: documentsUrls
       };
 
       // Create a flat payload exactly matching the data and fields for the API request
@@ -217,7 +219,7 @@ const Form = ({ onSubmitSuccess }) => {
 
       console.log("📤 [Doctor Onboarding] POSTing flat payload to c2c_app/doctor/request:", apiPayload);
 
-      const response = await fetch("https://hyphen-chemo-exponent.ngrok-free.dev/c2c_app/doctor/request", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/c2c_app/doctor/request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -238,9 +240,9 @@ const Form = ({ onSubmitSuccess }) => {
       if (onSubmitSuccess) {
         onSubmitSuccess({ ...finalData, documents: uploadedFiles });
       }
-      
+
       setIsSubmitted(true);
-      
+
       // Reset Form
       setCurrentStep(1);
       setOnboarding({
@@ -284,7 +286,7 @@ const Form = ({ onSubmitSuccess }) => {
     switch (step) {
       case 1: return !!(onboarding.fullName && essentials.email && essentials.email.includes('@') && onboarding.phone && essentials.secondaryId && onboarding.gender);
       case 2: return !!(onboarding.state && onboarding.college && onboarding.degree && onboarding.completionYear && onboarding.registrationNumber && onboarding.registrationYear && essentials.experience && onboarding.specialization);
-      case 3: return !!(onboarding.clinicLocation && onboarding.clinicNumber && onboarding.timings && onboarding.fees && essentials.appointmentfee && essentials.otcfee && essentials.platformfee);
+      case 3: return !!(onboarding.clinicLocation && onboarding.clinicNumber && onboarding.fees && essentials.platformfee);
       case 4: return !!(uploadedFiles.idProof && uploadedFiles.registrationDoc && uploadedFiles.hospitalId && uploadedFiles.photo);
       case 5: return !!(bankDetails.accountHolderName && bankDetails.bankName && bankDetails.accountNumber && bankDetails.ifscCode && bankDetails.upiId);
       case 6: return !!(essentials.password && essentials.password === essentials.confirmPassword && onboarding.terms);
@@ -294,9 +296,9 @@ const Form = ({ onSubmitSuccess }) => {
 
   if (isSubmitted) {
     return (
-      <SuccessPage 
-        title="Doctor Registration Successful!" 
-        description="Your onboarding request has been submitted successfully and is under review. Our administrative team will verify your credentials and send an approval update shortly." 
+      <SuccessPage
+        title="Doctor Registration Successful!"
+        description="Your onboarding request has been submitted successfully and is under review. Our administrative team will verify your credentials and send an approval update shortly."
       />
     );
   }
@@ -387,18 +389,60 @@ const Form = ({ onSubmitSuccess }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Input label="Clinic Address" value={onboarding.clinicLocation} onChange={v => { setOnboarding({ ...onboarding, clinicLocation: v }); setEssentials({ ...essentials, address: v }); }} />
                   <Input label="Clinic Number" type="tel" pattern="[0-9]{10}" maxLength="10" placeholder="10-digit number" value={onboarding.clinicNumber} onChange={v => setOnboarding({ ...onboarding, clinicNumber: v.replace(/[^0-9]/g, '') })} />
-                  <div className="md:col-span-2">
-                    <Input label="Available Time Slots" placeholder="ex 10:00 AM - 2:00 PM" value={onboarding.timings} onChange={v => setOnboarding({ ...onboarding, timings: v })} />
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex flex-col">
+                      <label className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1">Appt Date Limit</label>
+                      <input type="number" min="0" placeholder="e.g. 7" value={essentials.appointmentdatelimit} onChange={e => setEssentials({ ...essentials, appointmentdatelimit: e.target.value })} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl text-sm font-black text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    </div>
+                    {/* Hiding current_booking for now 
+                    <label className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl cursor-pointer">
+                      <input type="checkbox" checked={essentials.current_booking} onChange={e => setEssentials({ ...essentials, current_booking: e.target.checked })} className="w-6 h-6 rounded text-blue-600" />
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Current Booking</span>
+                    </label>
+                    */}
                   </div>
                   <div className="md:col-span-2">
                     <SearchableDropdown label="Associated Hospital" required={false} options={approvedHospitals} value={onboarding.associatedHospital || ''} onChange={v => setOnboarding({ ...onboarding, associatedHospital: v })} />
                   </div>
                 </div>
-                <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <FeeInput label="Doc Fee" value={onboarding.fees} onChange={v => { setOnboarding({ ...onboarding, fees: v }); setEssentials({ ...essentials, doctorfee: v }); }} />
-                  <FeeInput label="Appt Fee" value={essentials.appointmentfee} onChange={v => setEssentials({ ...essentials, appointmentfee: v })} />
-                  <FeeInput label="OTC Fee" value={essentials.otcfee} onChange={v => setEssentials({ ...essentials, otcfee: v })} />
-                  <FeeInput label="Platform" value={essentials.platformfee} onChange={v => setEssentials({ ...essentials, platformfee: v })} />
+                <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <FeeInput label="Doc Fee" value={onboarding.fees} onChange={v => {
+                    setOnboarding({ ...onboarding, fees: v });
+                    const platform = essentials.platformfee || 0;
+                    const appt = Number(v || 0) + Number(platform);
+                    setEssentials({ ...essentials, doctorfee: v, appointmentfee: appt.toString() });
+                  }} />
+                  <FeeInput label="Platform Fee" value={essentials.platformfee} onChange={v => {
+                    const doc = onboarding.fees || 0;
+                    const appt = Number(doc) + Number(v || 0);
+                    setEssentials({ ...essentials, platformfee: v, appointmentfee: appt.toString() });
+                  }} />
+                  <FeeInput label="Appt Fee" value={essentials.appointmentfee} disabled={true} onChange={() => { }} required={false} />
+                </div>
+
+                <div className="mt-8 bg-gradient-to-r from-blue-50/50 via-indigo-50/50 to-slate-50/50 border border-blue-100/70 rounded-[2rem] p-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-black text-blue-900 uppercase tracking-wider flex items-center gap-2">
+                      <span className="text-lg">??</span> Advanced Fee & Reappointment Settings
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-white/75 backdrop-blur-sm rounded-2xl border border-slate-100">
+                    <FeeInput label="2nd Doc Fee" required={true} value={essentials.seconddoctorfee} onChange={v => {
+                      const platform = essentials.secondplatformfee || 0;
+                      const appt = Number(v || 0) + Number(platform);
+                      setEssentials({ ...essentials, seconddoctorfee: v, secondappointmentfee: appt.toString() });
+                    }} />
+                    <FeeInput label="2nd Platform" required={true} value={essentials.secondplatformfee} onChange={v => {
+                      const doc = essentials.seconddoctorfee || 0;
+                      const appt = Number(doc) + Number(v || 0);
+                      setEssentials({ ...essentials, secondplatformfee: v, secondappointmentfee: appt.toString() });
+                    }} />
+                    <FeeInput label="2nd Appt Fee" required={true} disabled={true} value={essentials.secondappointmentfee} onChange={() => { }} />
+                    <div className="flex flex-col">
+                      <label className="text-[9px] font-black text-blue-900 uppercase mb-1.5 ml-1">Reappt Days Limit</label>
+                      <input required={true} type="number" min="0" placeholder="e.g. 15" value={essentials.reappointmentdayslimit} onChange={e => setEssentials({ ...essentials, reappointmentdayslimit: e.target.value })} className="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-black text-blue-600 outline-none" />
+                    </div>
+                  </div>
                 </div>
               </StepWrapper>
             )}
@@ -419,39 +463,39 @@ const Form = ({ onSubmitSuccess }) => {
             {currentStep === 5 && (
               <StepWrapper title="Bank Details">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input 
-                    label="Account Holder Name" 
-                    value={bankDetails.accountHolderName} 
-                    onChange={v => setBankDetails({ ...bankDetails, accountHolderName: v })} 
+                  <Input
+                    label="Account Holder Name"
+                    value={bankDetails.accountHolderName}
+                    onChange={v => setBankDetails({ ...bankDetails, accountHolderName: v })}
                   />
-                  <Input 
-                    label="Bank Name" 
-                    value={bankDetails.bankName} 
-                    onChange={v => setBankDetails({ ...bankDetails, bankName: v })} 
+                  <Input
+                    label="Bank Name"
+                    value={bankDetails.bankName}
+                    onChange={v => setBankDetails({ ...bankDetails, bankName: v })}
                   />
-                  <Input 
-                    label="Account Number" 
+                  <Input
+                    label="Account Number"
                     type="tel"
                     pattern="[0-9]{9,18}"
                     maxLength="18"
                     placeholder="Enter Account Number"
-                    value={bankDetails.accountNumber} 
-                    onChange={v => setBankDetails({ ...bankDetails, accountNumber: v.replace(/[^0-9]/g, '') })} 
+                    value={bankDetails.accountNumber}
+                    onChange={v => setBankDetails({ ...bankDetails, accountNumber: v.replace(/[^0-9]/g, '') })}
                   />
-                  <Input 
-                    label="IFSC Code" 
+                  <Input
+                    label="IFSC Code"
                     maxLength="11"
                     placeholder="e.g. SBIN0001234"
-                    value={bankDetails.ifscCode} 
-                    onChange={v => setBankDetails({ ...bankDetails, ifscCode: v.toUpperCase() })} 
+                    value={bankDetails.ifscCode}
+                    onChange={v => setBankDetails({ ...bankDetails, ifscCode: v.toUpperCase() })}
                     error={bankDetails.ifscCode && bankDetails.ifscCode.length !== 11 ? "IFSC Code must be 11 characters" : null}
                   />
                   <div className="md:col-span-2">
-                    <Input 
-                      label="UPI ID" 
+                    <Input
+                      label="UPI ID"
                       placeholder="e.g. username@bank"
-                      value={bankDetails.upiId} 
-                      onChange={v => setBankDetails({ ...bankDetails, upiId: v })} 
+                      value={bankDetails.upiId}
+                      onChange={v => setBankDetails({ ...bankDetails, upiId: v })}
                       error={bankDetails.upiId && !bankDetails.upiId.includes('@') ? "Must include @" : null}
                     />
                   </div>

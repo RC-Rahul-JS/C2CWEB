@@ -30,8 +30,8 @@ const Footer = () => {
 
     const onboardingItems = [
         { name: 'Doctor Onboarding', path: '/doctor-onboarding' },
-        { name: 'Hospital Onboarding', path: '/hospital-onboarding' },
-        { name: 'Medical Onboarding', path: '/medical-onboarding' },
+        // { name: 'Hospital Onboarding', path: '/hospital-onboarding' },
+        // { name: 'Medical Onboarding', path: '/medical-onboarding' },
     ];
 
     return (
